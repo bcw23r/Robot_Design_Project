@@ -68,7 +68,7 @@ while True:
         back_cnt   = 0         # 누적 후진 횟수
         extra_back = 0         # 확장 후진 남은 사이클 수
         EMERGENCY  = 140.0     # 즉시 후진 거리 (mm) — 여유 확보
-        DETECT     = 360.0     # 장애물 감지 거리 (mm)
+        DETECT     = 340.0     # 장애물 감지 거리 (mm)
 
         # ── 좌/우 개방도 측정용 넓은 구역 ─────────────────────
         # 기존 left_min/right_min: 좁은 전방-사이드(±20°~50°) 만 감지
@@ -101,27 +101,27 @@ while True:
     # ── 포인트를 구역별 최솟값/합계/카운트에 반영 ────────────
 
     # 전방 구역: ±20° (긴급후진·전방회피 판단)
-    if (angle <= 20 or angle >= 340) and distance <= 350:
+    if (angle <= 20 or angle >= 340) and distance <= 320:
         front_min = min(front_min, distance)
         front_cnt += 1
 
     # 오른쪽 narrow 구역: 20°~50° (긴급후진 판단용)
-    elif (angle > 20 and angle < 50) and distance <= 360:
+    elif (angle > 20 and angle < 50) and distance <= 330:
         right_min = min(right_min, distance)
         right_cnt += 1
 
     # 왼쪽 narrow 구역: 310°~340° (긴급후진 판단용)
-    elif (angle > 310 and angle < 340) and distance <= 360:
+    elif (angle > 310 and angle < 340) and distance <= 330:
         left_min = min(left_min, distance)
         left_cnt += 1
 
     # ── 넓은 좌/우 개방도 구역 (조향 방향 결정용) ────────────
     # 전방(±20°)과 후방(150°~210°)을 제외한 순수 측면 공간 측정
     # 평균 거리 = 공간이 넓을수록 값이 큼
-    if 20 <= angle < 100:                   # 우측 넓은 호 (20°~100°)
+    if 20 <= angle < 70:                   # 우측 넓은 호 (20°~70°)
         right_open_sum += distance
         right_open_cnt += 1
-    elif 260 <= angle < 340:                # 좌측 넓은 호 (260°~340°)
+    elif 290 <= angle < 340:                # 좌측 넓은 호 (290°~340°)
         left_open_sum  += distance
         left_open_cnt  += 1
 
@@ -177,6 +177,7 @@ while True:
                 # right_avg >= left_avg → 우측이 더 개방 → 우회전(음수 steer)
                 steer = (ratio * 0.85) if left_avg > right_avg else -(ratio * 0.85)
                 open_dbg = f"L_avg:{left_avg:.0f}mm({left_open_cnt}pts) R_avg:{right_avg:.0f}mm({right_open_cnt}pts)"
+                # 기존 narrow min 비교보다 넓은 구역 평균으로 회전 방향 결정 → 더 안정적 회피 가능
 
             ser_Ardu.write(f"F {steer:.2f} {speed:.2f}\n".encode())
             print(f"F_OBS  {front_min:.0f}mm → {'L' if steer>0 else 'R'} steer={steer:.2f} spd={speed:.2f}")
