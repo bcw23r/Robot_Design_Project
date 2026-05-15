@@ -68,7 +68,7 @@ while True:
         back_cnt   = 0         # 누적 후진 횟수
         extra_back = 0         # 확장 후진 남은 사이클 수
         EMERGENCY  = 140.0     # 즉시 후진 거리 (mm) — 여유 확보
-        DETECT     = 350.0     # 장애물 감지 거리 (mm)
+        DETECT     = 360.0     # 장애물 감지 거리 (mm)
         
         def _cleanup():
             try:
@@ -92,17 +92,17 @@ while True:
     # 포인트를 구역별 최솟값 및 카운트에 반영
     
     # 전방 구역: ±10°
-    if (angle <= 10 or angle >= 350) and distance <= 345:
+    if (angle <= 20 or angle >= 340) and distance <= 355:
         front_min = min(front_min, distance)
         front_cnt += 1
 
     # 오른쪽 구역 (CW 기준: 0°=앞, 50°=우 → 10~50°)
-    elif (angle > 10 and angle < 50) and distance <= 350:
+    elif (angle > 20 and angle < 55) and distance <= 360:
         right_min = min(right_min, distance)
         right_cnt += 1
 
     # 왼쪽 구역 (CW 기준: 310°=좌 → 310~350°)
-    elif (angle > 310 and angle < 350) and distance <= 350:
+    elif (angle > 305 and angle < 340) and distance <= 360:
         left_min = min(left_min, distance)
         left_cnt += 1
 
@@ -151,7 +151,7 @@ while True:
 
         elif left_min <= DETECT:
             ratio = (DETECT - left_min) / (DETECT - EMERGENCY)
-            steer = (ratio * 0.75)
+            steer = (ratio * 0.85)
             speed = 0.70 * (1 - ratio * 0.6)
             ser_Ardu.write(f"F {steer:.2f} {speed:.2f}\n".encode())
             print(f"L_OBS  {left_min:.0f}mm (pts:{left_cnt})")
@@ -159,7 +159,7 @@ while True:
 
         elif right_min <= DETECT:
             ratio = (DETECT - right_min) / (DETECT - EMERGENCY)
-            steer = -(ratio * 0.75)
+            steer = -(ratio * 0.85)
             speed = 0.70 * (1 - ratio * 0.6)
             ser_Ardu.write(f"F {steer:.2f} {speed:.2f}\n".encode())
             print(f"R_OBS  {right_min:.0f}mm (pts:{right_cnt})")
