@@ -87,18 +87,18 @@ while True:
     # 포인트를 구역별 최솟값 및 카운트에 반영
     
     # 전방 구역: ±40°
-    if angle <= 25 or angle >= 335:
+    if angle <= 20 or angle >= 340:
         front_min = min(front_min, distance)
         if distance <= DETECT:
             front_cnt += 1
 
     # 오른쪽 구역 (CW 기준: 0°=앞, 90°=우 → 40~90°)
-    elif (angle > 25 and angle < 90) and distance <= 190:
+    elif (angle > 20 and angle < 90) and distance <= 190:
         right_min = min(right_min, distance)
         right_cnt += 1
 
     # 왼쪽 구역 (CW 기준: 270°=좌 → 270~320°)
-    elif (angle > 270 and angle < 345) and distance <= 190:
+    elif (angle > 270 and angle < 340) and distance <= 190:
         left_min = min(left_min, distance)
         left_cnt += 1
 
@@ -118,7 +118,7 @@ while True:
         # 우선순위 최상위 — 조건 순서 버그 방지를 위해 분리
         if front_min <= EMERGENCY or left_min <= EMERGENCY or right_min <= EMERGENCY:
             ser_Ardu.write(b"B 0.50\n")
-            print(f"EMERGENCY! F:{front_min:.0f} L:{left_min:.0f} R:{right_min:.0f}mm → 후진")
+            print(f"EMERGENCY! F:{front_min:.0f} L:{left_min:.0f} R:{right_min:.0f}mm → BACKWARD")
             
 
         # 전방 장애물 회피 (우선순위 최상위)
@@ -126,11 +126,11 @@ while True:
         elif front_min <= DETECT:
             ratio = (DETECT - front_min) / (DETECT - EMERGENCY)
             speed = 0.70 * (1 - ratio * 0.7)
-            # 오른쪽이 여유 있으면 오른쪽으로 회피 → 음수 steer (pwm_L↔pwm_R 핀 교차로 인해 음수=우회전)
-            steer = (ratio * 0.90) if right_min > left_min else (ratio * 0.90)
+            # left_min > right_min → 코드상 "좌측" 여유 = 물리적 우측 여유 → 우회전 (음수 steer)
+            steer = -(ratio * 0.90) if left_min > right_min else (ratio * 0.90)
             ser_Ardu.write(f"F {steer:.2f} {speed:.2f}\n".encode())
-            print(f"Front obstacle  {front_min:.0f}mm → {'우' if steer<0 else '좌'}  spd={speed:.2f}")
-            
+            print(f"F_OBS  {front_min:.0f}mm → {'R' if steer<0 else 'L'} steer={steer:.2f} spd={speed:.2f}")
+              
 
         # 왼쪽 장애물 회피 
         elif left_min <= DETECT:
@@ -138,7 +138,7 @@ while True:
             steer = ratio * 0.90
             speed = 0.70 * (1 - ratio * 0.6)
             ser_Ardu.write(f"F {steer:.2f} {speed:.2f}\n".encode())
-            print(f"Left  obstacle  {left_min:.0f}mm (pts:{left_cnt})")
+            print(f"L_OBS  {left_min:.0f}mm (pts:{left_cnt})")
             
 
         # 오른쪽 장애물 회피 
@@ -147,7 +147,7 @@ while True:
             steer = -ratio * 0.90
             speed = 0.70 * (1 - ratio * 0.6)
             ser_Ardu.write(f"F {steer:.2f} {speed:.2f}\n".encode())
-            print(f"Right obstacle  {right_min:.0f}mm (pts:{right_cnt})")
+            print(f"R_OBS  {right_min:.0f}mm (pts:{right_cnt})")
             
 
         # 장애물 없음 → 직진
