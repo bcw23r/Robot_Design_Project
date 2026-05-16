@@ -229,7 +229,7 @@ while True:
     scan_buf.append((angle, distance))
 
     # ── 1회전 완료 -> VFH 판단 ────────────────────────────
-    if s_flag == 1 and len(scan_buf) > 15:
+    if s_flag == 1 and len(scan_buf) > 10:
         # ── VFH 분석 ────────────────────────────────────────
         hist, has_pt = build_polar_hist(scan_buf)
         emg_near = nearest_in_arc(hist, has_pt, 0.0, arc_half=70)
@@ -290,4 +290,4 @@ while True:
                 print(f"NO_GAP  최대폭={widest:.0f}mm  steer={steer:+.2f}")
 
     # ── 버퍼 항상 초기화 ───────────────────────────────
-    scan_buf = []
+        scan_buf = []
