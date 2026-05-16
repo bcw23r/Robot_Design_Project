@@ -35,7 +35,7 @@ N_BINS       = int(360 / BIN_DEG)       # 72개 빈
 ROBOT_WIDTH  = 200.0                    # 차량 폭 (mm)
 GAP_MARGIN   = 0.0                      # 통과 안전 마진 (mm)
 GAP_MIN_PASS = ROBOT_WIDTH + GAP_MARGIN # 최소 통과 가능 폭: 205mm
-DETECT       = 580.0    # [C] 500→750: 조기 감지로 긴급 상황 예방
+DETECT       = 700.0    # [C] 500→750: 조기 감지로 긴급 상황 예방
 EMERGENCY    = 142.0    # [C] 135→160: 벽 타기 진입 여유 확보
 MAX_STEER    = 0.85
 ROT_THRESH   = 100.0     # [C] 75→90: 전진 허용 범위 확대 (후진 대신 조향)
@@ -70,10 +70,13 @@ def find_vfh_gaps(hist, has_pt, detect_dist, min_pass_mm):
 
             if span < N_BINS:
                 center_cw = ((i + j) / 2.0 * BIN_DEG) % 360.0
+                # wraparound으로 중복된 갭 제거: center 각도 기준으로 seen 체크
+                # center_cw를 0~360도로 변환한 후 반올림하여 seen에 저장합니다.
                 ck = round(center_cw)
                 if ck not in seen:
                     seen.add(ck)
                     delta_deg = span * BIN_DEG
+                    # 갭 폭 계산: 양쪽 가장 가까운 장애물까지의 거리(d_L, d_R)와 갭 각도 폭(delta_deg) 사용
 
                     d_L = hist[(i - 1) % N_BINS] if has_pt[(i - 1) % N_BINS] else detect_dist
                     d_R = hist[j % N_BINS]        if has_pt[j % N_BINS]        else detect_dist
@@ -111,7 +114,7 @@ def select_best_gap(gaps):
     if forward_pool:
         # 전방에 길이 있으면, 그 중에서 가장 정면에 가깝고(Angle Penalty 강화) 넓은 길 선택
         # abs(g['center'])에 더 큰 가중치(예: 2.0~3.0)를 곱해 정면 위주로 판단하게 합니다.
-        return max(forward_pool, key=lambda g: g['width'] * 0.3 - abs(g['center']) * 2.0)
+        return max(forward_pool, key=lambda g: g['width'] * 0.6 - abs(g['center']) * 2.5)
     else:
         # 전방이 다 막혔을 때만 측후방을 돌아보는(VFH_TURN) 갭을 선택
         return max(passable, key=lambda g: g['width'])
