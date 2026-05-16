@@ -236,7 +236,7 @@ while True:
                 open_s = best_forward_open(hist, has_pt)
                 steer  = max(-MAX_STEER, min(MAX_STEER,
                              open_s / 90.0 * MAX_STEER))
-                ser_Ardu.write(f"F {steer:.2f} 0.20\n".encode())
+                ser_Ardu.write(f"F {steer:.2f} 0.60\n".encode())
                 widest = max((g['width'] for g in gaps), default=0.0)
                 print(f"NO_GAP_FWD  최대폭={widest:.0f}mm  open={open_s:+.0f}도  "
                       f"steer={steer:+.2f}")
