@@ -51,10 +51,10 @@ ser_L.write(bytes([0xA5, 0x20]))
 BIN_DEG      = 5.0               # 히스토그램 빈 해상도 (도)
 N_BINS       = int(360 / BIN_DEG)  # 72개 빈
 ROBOT_WIDTH  = 200.0             # 차량 폭 (mm)
-GAP_MARGIN   = 30.0              # 통과 안전 마진 (mm)
+GAP_MARGIN   = 25.0              # 통과 안전 마진 (mm)
 GAP_MIN_PASS = ROBOT_WIDTH + GAP_MARGIN   # 최소 통과 가능 폭: 230mm
 DETECT       = 500.0             # 감지 거리 (mm) — 이른 반응을 위해 확대
-EMERGENCY    = 140.0             # 즉시 대응 거리 (mm)
+EMERGENCY    = 135.0             # 즉시 대응 거리 (mm)
 MAX_STEER    = 0.85              # 최대 조향값
 ROT_THRESH   = 75.0             # 이 각도 초과 시 제자리 회전 사용 (도)
 MIN_COUNT    = 4                 # 구역 유효 포인트 최솟값
@@ -238,9 +238,9 @@ while True:
     # VFH 히스토그램보다 계산이 빠르므로 즉각 위험 감지에 사용
     if (angle <= 20 or angle >= 340) and distance <= 355:
         front_min = min(front_min, distance);  front_cnt += 1
-    elif (angle > 20 and angle < 55) and distance <= DETECT:
+    elif (angle > 20 and angle < 70) and distance <= DETECT:
         right_min = min(right_min, distance);  right_cnt += 1
-    elif (angle > 305 and angle < 340) and distance <= DETECT:
+    elif (angle > 290 and angle < 340) and distance <= DETECT:
         left_min  = min(left_min,  distance);  left_cnt  += 1
 
     scan_buf.append((angle, distance))
