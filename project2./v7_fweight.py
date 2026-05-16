@@ -44,8 +44,8 @@ N_BINS       = int(360 / BIN_DEG)       # 72개 빈
 ROBOT_WIDTH  = 200.0                    # 차량 폭 (mm)
 GAP_MARGIN   = 5.0                      # 통과 안전 마진 (mm)
 GAP_MIN_PASS = ROBOT_WIDTH + GAP_MARGIN # 최소 통과 가능 폭: 205mm
-DETECT       = 400.0    # [C] 500→750: 조기 감지로 긴급 상황 예방
-EMERGENCY    = 142.0    # [C] 135→160: 벽 타기 진입 여유 확보
+DETECT       = 560.0    # [C] 500→750: 조기 감지로 긴급 상황 예방
+EMERGENCY    = 137.0    # [C] 135→160: 벽 타기 진입 여유 확보
 MAX_STEER    = 0.85
 ROT_THRESH   = 100.0     # [C] 75→90: 전진 허용 범위 확대 (후진 대신 조향)
 
@@ -213,7 +213,7 @@ while True:
     scan_buf.append((angle, distance))
 
     # ── 1회전 완료 -> VFH 판단 ────────────────────────────
-    if s_flag == 1 and len(scan_buf) > 15:
+    if s_flag == 1 and len(scan_buf) > 10:
 
         hist, has_pt = build_polar_hist(scan_buf)
         emg_near = nearest_in_arc(hist, has_pt, 0.0, arc_half=70)
