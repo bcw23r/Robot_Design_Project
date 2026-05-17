@@ -271,7 +271,9 @@ while True:
             elif best is not None and best['passable'] and abs(best['center']) <= ROT_THRESH:
                 steer  = max(-MAX_STEER, min(MAX_STEER,
                                 best['center'] / 90.0 * MAX_STEER))
-                near_d = nearest_in_arc(hist, has_pt, best['center_cw'], arc_half=20)
+                # 갭 중심 방향에서 ±30도 내의 최근접 장애물 거리
+                near_d = nearest_in_arc(hist, has_pt, best['center_cw'], arc_half=30)
+                # DETECT에서 EMERGENCY+5까지 선형적으로 감속, 그 이하에서는 0.65 고정
                 ratio  = min(max((DETECT - near_d) / (DETECT - EMERGENCY+5), 0.0), 1.0)
                 speed  = 0.65 * (1.0 - ratio * 0.55)
                 ser_Ardu.write(f"F {steer:.2f} {speed:.2f}\n".encode())
