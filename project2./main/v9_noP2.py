@@ -50,12 +50,12 @@ ser_L.write(bytes([0xA5, 0x20]))
 # ── 전역 파라미터 ─────────────────────────────────────────────────
 BIN_DEG      = 5.0               # 히스토그램 빈 해상도 (도)
 N_BINS       = int(360 / BIN_DEG)  # 72개 빈
-ROBOT_WIDTH  = 120.0             # 차량 폭 (mm)
+ROBOT_WIDTH  = 140.0             # 차량 폭 (mm)
 GAP_MARGIN   = 10.0              # 통과 안전 마진 (mm)
 GAP_MIN_PASS = ROBOT_WIDTH + GAP_MARGIN   # 최소 통과 가능 폭: 230mm
-DETECT       = 600.0             # 감지 거리 (mm) — 이른 반응을 위해 확대
+DETECT       = 500.0             # 감지 거리 (mm) — 이른 반응을 위해 확대
 EMERGENCY    = 150.0             # 즉시 대응 거리 (mm) — P3 감속 기준
-P4_DIST      = 170.0             # 이 거리 이하일 때만 제자리 회전(P4) 발동 (mm)
+P4_DIST      = 200.0             # 이 거리 이하일 때만 제자리 회전(P4) 발동 (mm)
 MAX_STEER    = 0.85              # 최대 조향값
 ROT_THRESH   = 110.0             # 이 각도 초과 시 제자리 회전 사용 (도)
 
@@ -164,7 +164,7 @@ def select_best_gap(gaps, min_pass_mm=GAP_MIN_PASS):
         return None
     passable = [g for g in gaps if g['width'] >= min_pass_mm]
     pool     = passable if passable else gaps
-    return max(pool, key=lambda g: g['width'] * 0.25 - abs(g['center']) * 1.8)
+    return max(pool, key=lambda g: g['width'] * 0.25 - abs(g['center']) * 1.9)
 
 
 def nearest_in_arc(hist, has_pt, center_cw, arc_half=25):
@@ -308,6 +308,6 @@ while True:
         
     else:
         # ── 회전 중간 패킷: 버퍼 초기화만 ─────────────────────
-        ser_Ardu.write(f"F 0.00 0.20\n".encode())
+        ser_Ardu.write(f"F 0.00 0.40\n".encode())
         pass
 
