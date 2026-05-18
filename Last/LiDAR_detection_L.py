@@ -284,13 +284,10 @@ while True:
 
                 # ── P2: VFH 제자리 회전 — 갭이 후방 반구 + 장애물 근접 ──
                 elif best is not None and best['passable'] and emg_near <= P4_DIST:
-                    turn_cnt += 1
-                    if turn_cnt >= 3:
-                        rot_dir = 1.0 if best['center'] > 0 else -1.0
-                        ser_Ardu.write(f"T {rot_dir:.2f}\n".encode())
-                        print(f"VFH_ROT  갭 후방({best['center']:+.0f}도) 근접={emg_near:.0f}mm -> "
-                                f"제자리 회전 dir={rot_dir:+.0f}  폭={best['width']:.0f}mm")
-                        turn_cnt = 0
+                    rot_dir = 1.0 if best['center'] > 0 else -1.0
+                    ser_Ardu.write(f"T {rot_dir:.2f}\n".encode())
+                    print(f"VFH_ROT  갭 후방({best['center']:+.0f}도) 근접={emg_near:.0f}mm -> "
+                            f"제자리 회전 dir={rot_dir:+.0f}  폭={best['width']:.0f}mm")
 
                 # ── P3: 전방 매우 가까운 장애물 — 갭이 후방 반구 + 장애물 근접 → 후진 ──
                 elif emg_near <= EMERGENCY and (best is None or not best['passable'] or abs(best['center']) > ROT_THRESH):
