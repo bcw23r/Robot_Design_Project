@@ -16,11 +16,11 @@ ser_L.write(bytes([0xA5, 0x20]))
 # ── 전역 파라미터 ─────────────────────────────────────────────────
 BIN_DEG      = 4.0                 # 히스토그램 빈 해상도 (도) 
 N_BINS       = int(360 / BIN_DEG)  # 90개 빈
-GAP_MIN      = 90.0               # 최소 통과 가능 폭 (mm)
+GAP_MIN      = 80.0               # 최소 통과 가능 폭 (mm)
 GAP_MARGIN   = 10.0                # 통과 안전 마진 (mm)
 GAP_MIN_PASS = GAP_MIN + GAP_MARGIN   # 최소 통과 가능 폭: 230mm
 DETECT       = 560.0               # 감지 거리 (mm) — 이른 반응을 위해 확대
-VELO_DOWN    = 440.0               # 감속 시작 범위 (mm)
+VELO_DOWN    = 400.0               # 감속 시작 범위 (mm)
 EMERGENCY    = 150.0               # 즉시 대응 거리 (mm) — P3 감속 기준
 P4_DIST      = 170.0               # 이 거리 이하일 때만 제자리 회전(P4) 발동 (mm)
 MAX_STEER    = 1.2                # 최대 조향값
@@ -259,7 +259,7 @@ while True:
                     crn_R = nearest_in_arc(hist, has_pt,  40.0, arc_half=25)
                     crnf_L = max(0.0, CORNER_REP - crn_L) / CORNER_REP
                     crnf_R = max(0.0, CORNER_REP - crn_R) / CORNER_REP
-                    corner_rep = (crnf_L - crnf_R) * 50.0  # 가까운 전방 코너에서 밀어냄
+                    corner_rep = (crnf_L - crnf_R) * 45.0  # 가까운 전방 코너에서 밀어냄
 
                     # 측면 당김: 150~450mm 구간에서 가까운 쪽으로 당김 (repulsion 구간과 겹치지 않음)
                     # 텐트 함수: 300mm에서 최대, 150mm/450mm에서 0
