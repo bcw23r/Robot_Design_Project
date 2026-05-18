@@ -19,8 +19,8 @@ N_BINS       = int(360 / BIN_DEG)  # 90개 빈
 GAP_MIN      = 90.0               # 최소 통과 가능 폭 (mm)
 GAP_MARGIN   = 10.0                # 통과 안전 마진 (mm)
 GAP_MIN_PASS = GAP_MIN + GAP_MARGIN   # 최소 통과 가능 폭: 230mm
-DETECT       = 550.0               # 감지 거리 (mm) — 이른 반응을 위해 확대
-VELO_DOWN    = 400.0               # 감속 시작 범위 (mm)
+DETECT       = 560.0               # 감지 거리 (mm) — 이른 반응을 위해 확대
+VELO_DOWN    = 440.0               # 감속 시작 범위 (mm)
 EMERGENCY    = 150.0               # 즉시 대응 거리 (mm) — P3 감속 기준
 P4_DIST      = 170.0               # 이 거리 이하일 때만 제자리 회전(P4) 발동 (mm)
 MAX_STEER    = 1.2                # 최대 조향값
@@ -276,7 +276,7 @@ while True:
                     # 근접할수록 조향 증폭: 멀면 1.0배, 가까우면 최대 1.5배
                     steer_gain = 1.0 + ratio * 0.5
                     steer  = max(-MAX_STEER, min(MAX_STEER, target * steer_gain / 90.0 * MAX_STEER))
-                    speed  = 0.90 * (1.0 - ratio * 0.55)
+                    speed  = 0.85 * (1.0 - ratio * 0.55)
                     ser_Ardu.write(f"F {steer:.2f} {speed:.2f}\n".encode())
                     print(f"VFH_FWD  갭={best['width']:.0f}mm@{best['center']:+.0f}도  "
                             f"bias={bias:+.1f}도  rep={repulsion:+.1f}도  crn={corner_rep:+.1f}도  pull={side_pull:+.1f}도  "
