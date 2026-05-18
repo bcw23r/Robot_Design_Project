@@ -20,8 +20,9 @@ GAP_MIN      = 90.0               # 최소 통과 가능 폭 (mm)
 GAP_MARGIN   = 10.0                # 통과 안전 마진 (mm)
 GAP_MIN_PASS = GAP_MIN + GAP_MARGIN   # 최소 통과 가능 폭: 230mm
 DETECT       = 550.0               # 감지 거리 (mm) — 이른 반응을 위해 확대
+VELO_DOWN    = 400.0               # 감속 시작 범위 (mm)
 EMERGENCY    = 150.0               # 즉시 대응 거리 (mm) — P3 감속 기준
-P4_DIST      = 200.0               # 이 거리 이하일 때만 제자리 회전(P4) 발동 (mm)
+P4_DIST      = 170.0               # 이 거리 이하일 때만 제자리 회전(P4) 발동 (mm)
 MAX_STEER    = 1.2                # 최대 조향값
 ROT_THRESH   = 110.0               # 이 각도 초과 시 제자리 회전 사용 (도)
 ROBOT_RADIUS = 35.0               # 로봇 반경 (mm) — 실제 폭/2 로 조정
@@ -254,8 +255,8 @@ while True:
                     # 전방 코너 반발력: 측면 반발력 범위(±50°) 밖의 전방 좌/우 코너 감지
                     # 좌측 전방 코너: CW 310°~359°, 우측 전방 코너: CW 1°~50°
                     CORNER_REP = 350.0
-                    crn_L = nearest_in_arc(hist, has_pt, 310.0, arc_half=25)
-                    crn_R = nearest_in_arc(hist, has_pt,  50.0, arc_half=25)
+                    crn_L = nearest_in_arc(hist, has_pt, 320.0, arc_half=25)
+                    crn_R = nearest_in_arc(hist, has_pt,  40.0, arc_half=25)
                     crnf_L = max(0.0, CORNER_REP - crn_L) / CORNER_REP
                     crnf_R = max(0.0, CORNER_REP - crn_R) / CORNER_REP
                     corner_rep = (crnf_L - crnf_R) * 50.0  # 가까운 전방 코너에서 밀어냄
@@ -270,12 +271,12 @@ while True:
 
                     target = best['center'] + bias + repulsion + corner_rep + side_pull
                     near_d = nearest_in_arc(hist, has_pt, best['center_cw'], arc_half=35)
-                    # 거리 기반 감속 -> 가까울수록 조향 증폭: 멀면 1.0배, 가까우면 최대 1.6배
-                    ratio  = min(max((DETECT - near_d) / (DETECT - EMERGENCY), 0.0), 1.0)
+                    # 거리 기반 감속 -> 가까울수록 조향 증폭: 멀면 1.0배, 가까우면 최대 1.5배
+                    ratio  = min(max((VELO_DOWN - near_d) / (VELO_DOWN - EMERGENCY), 0.0), 1.0)
                     # 근접할수록 조향 증폭: 멀면 1.0배, 가까우면 최대 1.5배
                     steer_gain = 1.0 + ratio * 0.5
                     steer  = max(-MAX_STEER, min(MAX_STEER, target * steer_gain / 90.0 * MAX_STEER))
-                    speed  = 0.80 * (1.0 - ratio * 0.55)
+                    speed  = 0.90 * (1.0 - ratio * 0.55)
                     ser_Ardu.write(f"F {steer:.2f} {speed:.2f}\n".encode())
                     print(f"VFH_FWD  갭={best['width']:.0f}mm@{best['center']:+.0f}도  "
                             f"bias={bias:+.1f}도  rep={repulsion:+.1f}도  crn={corner_rep:+.1f}도  pull={side_pull:+.1f}도  "
