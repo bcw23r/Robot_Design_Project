@@ -40,9 +40,9 @@ WEAK_STEER_GAIN    = 0.60
 COLOR_MEMORY_TIME  = 0.30   # 색 소실 후 마지막 조향 유지 시간 (s)
 STEER_SMOOTH_ALPHA = 0.40   # 조향 EMA 평활화 계수 (낮을수록 부드러움)
 
-ALIGN_STEER_ENTER = 0.18   # 제자리 정렬 회전 시작 임계값 (|steer| 이상)
-ALIGN_STEER_EXIT  = 0.07   # 정렬 완료 임계값 (|steer| 이하)
-ALIGN_MIN_DIST    = 400.0  # 이 거리(mm) 이상에서만 정렬 (근거리는 바로 전진)
+ALIGN_STEER_ENTER = 0.25   # 제자리 정렬 회전 시작 임계값 (|steer| 이상)
+ALIGN_STEER_EXIT  = 0.10   # 정렬 완료 임계값 (|steer| 이하)
+ALIGN_MIN_DIST    = 300.0  # 이 거리(mm) 이상에서만 정렬 (근거리는 바로 전진)
 
 TARGETS = ['red', 'yellow', 'blue']
 
