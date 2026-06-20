@@ -26,8 +26,8 @@ PAPER_H_MM = 300.0
 
 # 주행 파라미터
 MAX_STEER       = 1.0
-SPEED_FAR       = 0.55
-SPEED_NEAR      = 0.35
+SPEED_FAR       = 0.50
+SPEED_NEAR      = 0.30
 DIST_SLOW_MM    = 100.0
 AREA_PEAK_THRES = 0.04
 STEER_GAIN      = 0.015
@@ -35,10 +35,10 @@ CONFIRM_FRAMES  = 4
 STOP_DURATION   = 1.0
 
 WEAK_MIN_AREA      = 200
-WEAK_SPEED         = 0.35
-WEAK_STEER_GAIN    = 0.60
-COLOR_MEMORY_TIME  = 0.40   # 색 소실 후 마지막 조향 유지 시간 (s)
-STEER_SMOOTH_ALPHA = 0.45   # 조향 EMA 평활화 계수 (낮을수록 부드러움)
+WEAK_SPEED         = 0.30
+WEAK_STEER_GAIN    = 0.50
+COLOR_MEMORY_TIME  = 0.e0   # 색 소실 후 마지막 조향 유지 시간 (s)
+STEER_SMOOTH_ALPHA = 0.40   # 조향 EMA 평활화 계수 (낮을수록 부드러움)
 
 TARGETS = ['red', 'yellow', 'blue']
 
