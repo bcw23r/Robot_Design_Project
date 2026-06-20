@@ -51,13 +51,13 @@ TARGETS = ['red', 'yellow', 'blue']
 # LiDAR VFH 파라미터
 BIN_DEG       = 4.0
 N_BINS        = int(360 / BIN_DEG)
-GAP_MIN_PASS  = 150.0
+GAP_MIN_PASS  = 100.0
 DETECT        = 650.0
 VELO_DOWN     = 400.0
 EMERGENCY     = 200.0
 LID_MAX_STEER = 1.2
-ROT_THRESH    = 110.0
-ROBOT_RADIUS  = 50.0
+ROT_THRESH    = 100.0
+ROBOT_RADIUS  = 60.0
 
 # LiDAR 상태 공유 변수 및 락
 _lidar_lock  = threading.Lock()
@@ -65,7 +65,7 @@ _lidar_state = {
     'has_data'   : False,
     'emg_near'   : 9999.0,   # 전방 80° 최근접 거리
     'front_near' : 9999.0,   # 전방 35° 최근접 거리 (감속용)
-    'vfh_action' : 'FWD',    # 'FWD' | 'BACK'
+    'vfh_action' : 'FWD',
     'vfh_steer'  : 0.0,      # 정규화 조향값 (-1~1)
     'vfh_speed'  : 0.65,
     'rot_dir'    : 1.0,
@@ -157,10 +157,6 @@ def _compute_vfh(hist, has_pt):
     gaps = _find_gaps(hist, has_pt)
     best = _best_gap(gaps)
 
-    if emg <= EMERGENCY and (best is None or not best['passable']
-                              or abs(best['center']) > ROT_THRESH):
-        return 'BACK', 0.0, 0.80, 1.0, emg, front
-
     if best is not None and best['passable'] and abs(best['center']) <= ROT_THRESH:
         imb  = (best['d_R'] - best['d_L']) / (best['d_L'] + best['d_R'] + 1e-9)
         bias = imb * (best['delta_deg'] / 2.9)
@@ -241,10 +237,6 @@ def _vfh_drive(ser):
     if not ls['has_data']:
         ser.write(b"S\n")
         return "NO_LIDAR"
-    act = ls['vfh_action']
-    if act == 'BACK':
-        ser.write(b"B 0.80\n")
-        return f"VFH_BACK emg={ls['emg_near']:.0f}mm"
     ser.write(f"F {ls['vfh_steer']:.2f} {ls['vfh_speed']:.2f}\n".encode())
     return f"VFH_FWD steer={ls['vfh_steer']:+.2f} spd={ls['vfh_speed']:.2f}"
 
@@ -450,17 +442,7 @@ def main():
             time.sleep(0.1)
             continue
 
-        # ── LiDAR 긴급 후진 (최우선 — SEEK 중에만 적용) ──────────
         ls = _lidar_read()
-        if state == 'SEEK' and ls['has_data'] and ls['emg_near'] <= EMERGENCY:
-            ser.write(b"B 0.80\n")
-            vis = raw.copy()
-            cv2.putText(vis, f"LIDAR EMERGENCY {ls['emg_near']:.0f}mm",
-                        (5, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
-            cv2.imshow('Robot View', vis)
-            cv2.waitKey(1)
-            print(f"  [EMG] 전방={ls['emg_near']:.0f}mm → 후진")
-            continue
 
         result = detector.detect(raw)
         color  = TARGETS[target_idx]
