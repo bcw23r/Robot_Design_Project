@@ -9,7 +9,7 @@ import time
 import cv2
 import numpy as np
 
-from color_info import (ColorDetector, load_calibration,
+from color_v2 import (ColorDetector, load_calibration,
                         get_red_mask, get_yellow_mask, get_blue_mask)
 
 
