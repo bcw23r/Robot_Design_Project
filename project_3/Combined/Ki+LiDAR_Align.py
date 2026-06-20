@@ -513,15 +513,13 @@ def main():
 
                 # ── 정렬 히스테리시스 ──────────────────────────────
                 if abs(steer) > ALIGN_STEER_ENTER and z_mm > ALIGN_MIN_DIST:
-                    align_mode = True
+                    align_mode = True # 정렬 모드 진입 
                 elif abs(steer) < ALIGN_STEER_EXIT:
                     align_mode = False
 
                 if align_mode:
-                    rot_sign = 1.0 if steer > 0 else -1.0
-                    ser.write(f"T {rot_sign:.2f}\n".encode())
-                    cv2.putText(vis, f"ALIGN rot={rot_sign:+.0f} st={steer:+.2f}",
-                                (5, 58), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 200, 0), 2)
+                    rot_sign = 0.8 if steer > 0 else -0.8 # 제자리 회전 속도 (steer 방향 기반)
+                    ser.write(f"T {rot_sign:.2f}\n".encode()) # 제자리 회전 명령 (각도 : steer 방향, 속도: 고정)
                     print(f"  [ALIGN] {color.upper()} rot={rot_sign:+.0f} steer={steer:+.2f} z={z_mm:.0f}mm")
                     last_seen = time.time()
                     continue  # HUD 스킵 후 다음 프레임
