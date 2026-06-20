@@ -32,20 +32,20 @@ PAPER_H_MM = 300.0
 # ═══════════════════════════════════════════════════════════════════
 #  색상 탐지 / 주행 파라미터 (color_Lidar_1.py 동일)
 # ═══════════════════════════════════════════════════════════════════
-MAX_STEER       = 1.0
+MAX_STEER       = 1.1
 SPEED_FAR       = 0.55
 SPEED_NEAR      = 0.35
 AREA_PEAK_THRES = 0.04
 AREA_SLOW_THRES = 0.02       # 이 면적 이상이면 감속 (종이에 가까워진 것으로 판단)
-STEER_GAIN_CENT = 0.80       # Hough 무게중심 기반 조향 계수
+STEER_GAIN_CENT = 0.70       # Hough 무게중심 기반 조향 계수
 CONFIRM_FRAMES  = 4
 STOP_DURATION   = 1.1
 
 WEAK_MIN_AREA      = 200
 WEAK_SPEED         = 0.35
 WEAK_STEER_GAIN    = 0.60
-COLOR_MEMORY_TIME  = 0.40   # 색 소실 후 마지막 조향 유지 시간 (s)
-STEER_SMOOTH_ALPHA = 0.45   # 조향 EMA 평활화 계수 (낮을수록 부드러움)
+COLOR_MEMORY_TIME  = 0.30   # 색 소실 후 마지막 조향 유지 시간 (s)
+STEER_SMOOTH_ALPHA = 0.40  # 조향 EMA 평활화 계수 (낮을수록 부드러움)
 
 TARGETS = ['red', 'yellow', 'blue']
 
@@ -54,13 +54,13 @@ TARGETS = ['red', 'yellow', 'blue']
 # ═══════════════════════════════════════════════════════════════════
 BIN_DEG       = 4.0
 N_BINS        = int(360 / BIN_DEG)
-GAP_MIN_PASS  = 90.0
-DETECT        = 560.0
+GAP_MIN_PASS  = 150.0
+DETECT        = 600.0
 VELO_DOWN     = 400.0
-EMERGENCY     = 150.0
+EMERGENCY     = 200.0
 LID_MAX_STEER = 1.2
 ROT_THRESH    = 110.0
-ROBOT_RADIUS  = 35.0
+ROBOT_RADIUS  = 50.0
 
 # ═══════════════════════════════════════════════════════════════════
 #  LiDAR 공유 상태 (스레드 간)
