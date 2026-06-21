@@ -528,7 +528,7 @@ def main():
         color  = TARGETS[target_idx]
 
         # [최적화] 현재 표적 색만 계산 → 마스킹 비용 1/3 (3색→1색)
-        result = detector.detect(raw, only=color)
+        result = detector.detect(raw, only=color) 
         vis    = detector.draw_debug(raw, result)
 
         # ── STOP (정지 대기) ───────────────────────────────────────
