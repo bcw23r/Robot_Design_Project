@@ -26,8 +26,8 @@ PAPER_H_MM = 300.0
 
 # 주행 파라미터
 MAX_STEER       = 1.0
-SPEED_FAR       = 0.60
-SPEED_NEAR      = 0.35
+SPEED_FAR       = 0.70
+SPEED_NEAR      = 0.45
 DIST_SLOW_MM    = 150.0
 AREA_PEAK_THRES = 0.08
 STEER_GAIN      = 0.015
@@ -36,7 +36,7 @@ STOP_DURATION   = 1.0
 ENTRY_STOP_MM   = 250.0  # 카메라→앞바퀴 거리 (실측 후 조정, 종이 중심 도달 시 정지)
 
 WEAK_MIN_AREA      = 200
-WEAK_SPEED         = 0.45
+WEAK_SPEED         = 0.55
 WEAK_STEER_GAIN    = 0.60
 NUDGE_SPEED        = 0.30   # 피크 후 미탐지 시 앞으로 밀어 넣는 속도
 COLOR_MEMORY_TIME  = 0.30   # 색 소실 후 마지막 조향 유지 시간 (s)
@@ -53,25 +53,25 @@ ALIGN_MIN_DIST    = 400.0  # 이 거리(mm) 이상에서만 정렬 (근거리는
 #  · 스핀: 한 자리에서 카메라 1500mm 반경을 전방향 스캔
 #  · VFH : 장애물을 피해 ~1m 전진 → 새로운 시야각 확보
 #  · 재스핀: 직전 스핀에서 가려졌던 영역 재탐지
-SEARCH_SPIN_SPEED = 0.40   # 제자리 회전 T 명령값 (align_mode와 동일 크기)
-SEARCH_SPIN_TIME  = 3.8    # 1회 360° 스핀 소요 시간(s) — 실측 후 조정
+SEARCH_SPIN_SPEED = 0.30   # 제자리 회전 T 명령값 (align_mode와 동일 크기)
+SEARCH_SPIN_TIME  = 5.0    # 1회 360° 스핀 소요 시간(s) — 실측 후 조정
 SEARCH_VFH_TIME   = 5.5    # 스핀 사이 VFH 전진 시간(s, 약 1m 전진)
 
 TARGETS = ['red', 'yellow', 'blue']
 
 # [최적화 1] True로 설정하면 매 프레임 상세 로그 출력 (기본 비활성화)
-DEBUG = False
+DEBUG = True
 
 # LiDAR VFH 파라미터
 BIN_DEG       = 4.0
 N_BINS        = int(360 / BIN_DEG)
-GAP_MIN_PASS  = 100.0
-DETECT        = 700.0
-VELO_DOWN     = 500.0
-EMERGENCY     = 200.0
+GAP_MIN_PASS  = 90.0
+DETECT        = 750.0
+VELO_DOWN     = 600.0
+EMERGENCY     = 210.0
 LID_MAX_STEER = 1.2
 ROT_THRESH    = 100.0
-ROBOT_RADIUS  = 60.0
+ROBOT_RADIUS  = 90.0
 
 # LiDAR 상태 공유 변수 및 락
 _lidar_lock  = threading.Lock()
