@@ -63,7 +63,7 @@ OBS_DETECT_DIST  = DETECT        # 이 거리(mm) 이하면 장애물 감지 중
 OBS_RETURN_TIME  = 8.0           # 장애물 통과 후 복귀 조향 유지 시간 (s)
 OBS_RETURN_GAIN  = 1.20          # 복귀 조향 계수 (회피 방향의 반대로 이 비율만큼)
 
-HOME_NO_OBS_TIME = 8.0           # 장애물 없이 이 시간(s) 이상이면 시작점 복귀 모드 진입
+HOME_NO_OBS_TIME = 5.0           # 장애물 없이 이 시간(s) 이상이면 시작점 복귀 모드 진입
 HOME_STEER_KP    = 0.030         # 누적 헤딩 오차(deg) → 조향 계수
 STEER_DEG_RATE   = 12.0          # 조향값 1.0 ≈ 이 deg/s 회전 (실측 후 조정)
 
@@ -389,6 +389,7 @@ def main():
 
     # ── 카메라 ────────────────────────────────────────────────────
     cap = cv2.VideoCapture(CAM_INDEX)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE,   1)      # 드라이버 버퍼를 1프레임으로 제한
     cap.set(cv2.CAP_PROP_FRAME_WIDTH,  CAM_W)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_H)
     cap.set(cv2.CAP_PROP_FPS, 30)
@@ -450,7 +451,7 @@ def main():
 
     while True:
         # 버퍼에 쌓인 프레임을 비우고 최신 프레임만 사용
-        for _ in range(2):
+        for _ in range(4):
             cap.grab()
         ret, raw = cap.retrieve()
         if not ret:
@@ -493,6 +494,8 @@ def main():
                     peak_area_r    = 0.0
                     align_mode     = False
                     last_seen      = time.time()
+                    obs_active     = False   # 이전 장애물 상태 초기화
+                    obs_clear_time = None    # OBS_RET가 즉시 발동되지 않도록 타이머 리셋
                     no_obs_since   = time.time() - HOME_NO_OBS_TIME  # 색 완료 직후 복귀 즉시 가능
                     print(f"  ✅ {color.upper()} 완료 → {TARGETS[target_idx].upper()}")
                 else:
@@ -669,9 +672,10 @@ def main():
                         obs_active   = True
                         no_obs_since = time.time()  # 장애물 감지 → 홈 복귀 타이머 리셋
                     elif obs_active:
-                        # 장애물이 방금 사라짐 → 복귀 타이머 시작
+                        # 장애물이 방금 사라짐 → OBS_RET 타이머 + HOME 타이머 모두 여기서 시작
                         obs_active     = False
                         obs_clear_time = time.time()
+                        no_obs_since   = time.time()  # HOME 타이머도 이 시점부터 재시작
 
                     return_elapsed = (time.time() - obs_clear_time) \
                         if obs_clear_time is not None else OBS_RETURN_TIME + 1.0
