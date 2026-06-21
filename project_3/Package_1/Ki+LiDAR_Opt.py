@@ -94,7 +94,7 @@ def _build_hist(scan_buf):
     return hist, has_pt
 
 # 주어진 중심 각도 주변에서 가장 가까운 장애물 거리 반환 (탐색용)
-def _nearest(hist, has_pt, center_cw, arc_half=25):
+def _nearest(hist, has_pt, center_cw, arc_half=55):
     cb = int(center_cw / BIN_DEG) % N_BINS
     nc = max(1, int(arc_half / BIN_DEG))
     md = 9999.0
