@@ -27,7 +27,7 @@ PAPER_H_MM = 300.0
 # 주행 파라미터
 MAX_STEER       = 1.0
 SPEED_FAR       = 0.60
-SPEED_NEAR      = 0.40
+SPEED_NEAR      = 0.35
 DIST_SLOW_MM    = 150.0
 AREA_PEAK_THRES = 0.08
 STEER_GAIN      = 0.015
@@ -36,15 +36,15 @@ STOP_DURATION   = 1.0
 ENTRY_STOP_MM   = 250.0  # 카메라→앞바퀴 거리 (실측 후 조정, 종이 중심 도달 시 정지)
 
 WEAK_MIN_AREA      = 200
-WEAK_SPEED         = 0.40
+WEAK_SPEED         = 0.45
 WEAK_STEER_GAIN    = 0.60
 NUDGE_SPEED        = 0.30   # 피크 후 미탐지 시 앞으로 밀어 넣는 속도
 COLOR_MEMORY_TIME  = 0.30   # 색 소실 후 마지막 조향 유지 시간 (s)
 STEER_SMOOTH_ALPHA = 0.40   # 조향 EMA 평활화 계수 (낮을수록 부드러움)
 
-ALIGN_STEER_ENTER = 0.45   # 제자리 정렬 회전 시작 임계값 (|steer| 이상)
+ALIGN_STEER_ENTER = 0.30   # 제자리 정렬 회전 시작 임계값 (|steer| 이상)
 ALIGN_STEER_EXIT  = 0.10   # 정렬 완료 임계값 (|steer| 이하)
-ALIGN_MIN_DIST    = 450.0  # 이 거리(mm) 이상에서만 정렬 (근거리는 바로 전진)
+ALIGN_MIN_DIST    = 400.0  # 이 거리(mm) 이상에서만 정렬 (근거리는 바로 전진)
 
 # ── 탐색(SEARCH) 파라미터 ─────────────────────────────────────────
 # 색상영역 미발견 시: 즉시 360° 제자리 스핀(넓게 스캔) → VFH 전진 →
@@ -54,7 +54,7 @@ ALIGN_MIN_DIST    = 450.0  # 이 거리(mm) 이상에서만 정렬 (근거리는
 #  · VFH : 장애물을 피해 ~1m 전진 → 새로운 시야각 확보
 #  · 재스핀: 직전 스핀에서 가려졌던 영역 재탐지
 SEARCH_SPIN_SPEED = 0.40   # 제자리 회전 T 명령값 (align_mode와 동일 크기)
-SEARCH_SPIN_TIME  = 3.5    # 1회 360° 스핀 소요 시간(s) — 실측 후 조정
+SEARCH_SPIN_TIME  = 3.8    # 1회 360° 스핀 소요 시간(s) — 실측 후 조정
 SEARCH_VFH_TIME   = 5.5    # 스핀 사이 VFH 전진 시간(s, 약 1m 전진)
 
 TARGETS = ['red', 'yellow', 'blue']
