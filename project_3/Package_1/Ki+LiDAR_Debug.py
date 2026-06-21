@@ -150,7 +150,7 @@ def _best_gap(gaps):
 def _compute_vfh(hist, has_pt):
     """VFH 분석 → (action, steer, speed, rot_dir, emg_near, front_near)."""
     emg   = _nearest(hist, has_pt, 0.0, arc_half=80)
-    front = _nearest(hist, has_pt, 0.0, arc_half=55)
+    front = _nearest(hist, has_pt, 0.0, arc_half=40)
 
     if not any(has_pt):
         return 'FWD', 0.0, 0.70, 1.0, emg, front
