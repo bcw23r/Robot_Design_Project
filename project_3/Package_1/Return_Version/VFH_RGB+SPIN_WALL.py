@@ -50,7 +50,7 @@ SPIN_SCAN_TIME  = 6.0     # 360° 완료 시간(s) — 실측 후 조정
 SPIN_SCAN_DIR   = 1.0     # +1 = 우측 회전
 
 # 벽 추종 파라미터
-WALL_TARGET_DIST  = 350.0   # 목표 벽 거리 (mm)
+WALL_TARGET_DIST  = 330.0   # 목표 벽 거리 (mm)
 WALL_FOLLOW_SPEED = 0.50    # 벽 추종 전진 속도
 WALL_KP           = 0.0030  # 거리 오차 → 조향 비례 게인
 WALL_FRONT_THRESH = 450.0   # 전방 장애물 회전 임계값 (mm)
@@ -63,13 +63,13 @@ DEBUG   = True
 # LiDAR VFH 파라미터
 BIN_DEG       = 4.0
 N_BINS        = int(360 / BIN_DEG)
-GAP_MIN_PASS  = 90.0
+GAP_MIN_PASS  = 80.0
 DETECT        = 750.0
 VELO_DOWN     = 600.0
 EMERGENCY     = 210.0
 LID_MAX_STEER = 1.2
 ROT_THRESH    = 100.0
-ROBOT_RADIUS  = 90.0
+ROBOT_RADIUS  = 80.0
 
 _lidar_lock  = threading.Lock()
 _lidar_state = {
@@ -661,7 +661,11 @@ def main():
 
             if avoiding:
                 steer = float(np.clip(ls['vfh_steer'], -MAX_STEER, MAX_STEER))
-                speed = ls['vfh_speed']
+                speed = _speed_limit(ls['vfh_speed'])  # VFH 속도도 반드시 제한 적용
+
+            # 광각(80°) 비상 정지 오버라이드 — avoiding 여부 무관
+            if ls['has_data'] and ls['emg_near'] <= EMERGENCY:
+                speed = 0.0
 
             last_steer     = steer
             smoothed_steer = steer
