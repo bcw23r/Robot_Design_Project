@@ -150,8 +150,8 @@ def _best_gap(gaps):
     if not gaps:
         return None
     pool = [g for g in gaps if g['passable']] or gaps
-    return max(pool, key=lambda g: g['width']*0.3 - abs(g['center'])*1.8
-                                    + min(g['depth'],DETECT)/DETECT*20.0)
+    return max(pool, key=lambda g: g['width']*0.3 - abs(g['center'])*1.6
+                                    + min(g['depth'],DETECT)/DETECT*25.0)
 
 # VFH 분석 → 주행 명령 (조향, 속도, 회전 여부) 계산
 def _compute_vfh(hist, has_pt):
