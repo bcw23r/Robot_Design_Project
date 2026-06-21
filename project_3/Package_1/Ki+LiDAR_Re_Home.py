@@ -62,6 +62,7 @@ ROBOT_RADIUS  = 60.0
 OBS_DETECT_DIST  = DETECT        # 이 거리(mm) 이하면 장애물 감지 중으로 판단
 OBS_RETURN_TIME  = 8.0           # 장애물 통과 후 복귀 조향 유지 시간 (s)
 OBS_RETURN_GAIN  = 1.20          # 복귀 조향 계수 (회피 방향의 반대로 이 비율만큼)
+OBS_LOCKOUT_AFTER_STOP = 2.5     # 색상 완료 후 이 시간(s) 동안 OBS_RET 억제
 
 HOME_NO_OBS_TIME = 5.0           # 장애물 없이 이 시간(s) 이상이면 시작점 복귀 모드 진입
 HOME_STEER_KP    = 0.030         # 누적 헤딩 오차(deg) → 조향 계수
@@ -443,11 +444,12 @@ def main():
     area_peak_seen = False
     peak_area_r    = 0.0
     last_obs_steer = 0.0          # 마지막 장애물 회피 시 VFH 조향값
-    obs_active     = False        # 장애물 현재 감지 중
-    obs_clear_time = None         # 장애물이 사라진 시각
-    heading_deg    = 0.0          # 시작 방향 기준 누적 헤딩 (deg, + = 오른쪽)
-    heading_t      = time.time()  # 마지막 헤딩 업데이트 시각
-    no_obs_since   = time.time()  # 마지막으로 장애물이 없었던 시작 시각
+    obs_active        = False        # 장애물 현재 감지 중
+    obs_clear_time    = None         # 장애물이 사라진 시각
+    obs_lockout_until = 0.0          # 이 시각 이전에는 OBS_RET 억제
+    heading_deg       = 0.0          # 시작 방향 기준 누적 헤딩 (deg, + = 오른쪽)
+    heading_t         = time.time()  # 마지막 헤딩 업데이트 시각
+    no_obs_since      = time.time()  # 마지막으로 장애물이 없었던 시작 시각
 
     while True:
         # 버퍼에 쌓인 프레임을 비우고 최신 프레임만 사용
@@ -494,9 +496,10 @@ def main():
                     peak_area_r    = 0.0
                     align_mode     = False
                     last_seen      = time.time()
-                    obs_active     = False   # 이전 장애물 상태 초기화
-                    obs_clear_time = None    # OBS_RET가 즉시 발동되지 않도록 타이머 리셋
-                    no_obs_since   = time.time() - HOME_NO_OBS_TIME  # 색 완료 직후 복귀 즉시 가능
+                    obs_active        = False   # 이전 장애물 상태 초기화
+                    obs_clear_time    = None    # OBS_RET가 즉시 발동되지 않도록 타이머 리셋
+                    obs_lockout_until = time.time() + OBS_LOCKOUT_AFTER_STOP  # 잠금 시작
+                    no_obs_since      = time.time() - HOME_NO_OBS_TIME  # 색 완료 직후 복귀 즉시 가능
                     print(f"  ✅ {color.upper()} 완료 → {TARGETS[target_idx].upper()}")
                 else:
                     state = 'DONE'
@@ -680,7 +683,8 @@ def main():
                     return_elapsed = (time.time() - obs_clear_time) \
                         if obs_clear_time is not None else OBS_RETURN_TIME + 1.0
 
-                    if return_elapsed < OBS_RETURN_TIME:
+                    if return_elapsed < OBS_RETURN_TIME \
+                            and time.time() > obs_lockout_until:
                         # 장애물 통과 직후: 더 가까웠던 쪽 방향으로 복귀 조향
                         return_steer = float(np.clip(
                             last_obs_steer * OBS_RETURN_GAIN, -MAX_STEER, MAX_STEER))
