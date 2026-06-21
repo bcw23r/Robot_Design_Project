@@ -522,7 +522,7 @@ def main():
                     align_mode = False
 
                 if align_mode:
-                    rot_sign = 0.50 if steer > 0 else -0.50 # 제자리 회전 속도 (steer 방향 기반)
+                    rot_sign = 0.30 if steer > 0 else -0.30 # 제자리 회전 속도 (steer 방향 기반)
                     ser.write(f"T {rot_sign:.2f}\n".encode()) # 제자리 회전 명령 (각도 : steer 방향, 속도: 고정)
                     print(f"  [ALIGN] {color.upper()} rot={rot_sign:+.0f} steer={steer:+.2f} z={z_mm:.0f}mm")
                     last_seen = time.time()
