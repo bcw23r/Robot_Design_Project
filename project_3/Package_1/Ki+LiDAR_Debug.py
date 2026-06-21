@@ -28,30 +28,36 @@ PAPER_H_MM = 300.0
 MAX_STEER       = 1.0
 SPEED_FAR       = 0.55
 SPEED_NEAR      = 0.35
-DIST_SLOW_MM    = 100.0
-AREA_PEAK_THRES = 0.04
+DIST_SLOW_MM    = 150.0
+AREA_PEAK_THRES = 0.08
 STEER_GAIN      = 0.015
-CONFIRM_FRAMES  = 4
+CONFIRM_FRAMES  = 8
 STOP_DURATION   = 1.0
+ENTRY_STOP_MM   = 250.0  # 카메라→앞바퀴 거리 (실측 후 조정, 종이 중심 도달 시 정지)
 
 WEAK_MIN_AREA      = 200
 WEAK_SPEED         = 0.35
 WEAK_STEER_GAIN    = 0.60
+NUDGE_SPEED        = 0.10   # 피크 후 미탐지 시 앞으로 밀어 넣는 속도
 COLOR_MEMORY_TIME  = 0.30   # 색 소실 후 마지막 조향 유지 시간 (s)
 STEER_SMOOTH_ALPHA = 0.40   # 조향 EMA 평활화 계수 (낮을수록 부드러움)
+
+ALIGN_STEER_ENTER = 0.25   # 제자리 정렬 회전 시작 임계값 (|steer| 이상)
+ALIGN_STEER_EXIT  = 0.10   # 정렬 완료 임계값 (|steer| 이하)
+ALIGN_MIN_DIST    = 450.0  # 이 거리(mm) 이상에서만 정렬 (근거리는 바로 전진)
 
 TARGETS = ['red', 'yellow', 'blue']
 
 # LiDAR VFH 파라미터
 BIN_DEG       = 4.0
 N_BINS        = int(360 / BIN_DEG)
-GAP_MIN_PASS  = 150.0
-DETECT        = 600.0
+GAP_MIN_PASS  = 100.0
+DETECT        = 650.0
 VELO_DOWN     = 400.0
 EMERGENCY     = 200.0
 LID_MAX_STEER = 1.2
-ROT_THRESH    = 110.0
-ROBOT_RADIUS  = 50.0
+ROT_THRESH    = 100.0
+ROBOT_RADIUS  = 60.0
 
 # LiDAR 상태 공유 변수 및 락
 _lidar_lock  = threading.Lock()
@@ -59,7 +65,7 @@ _lidar_state = {
     'has_data'   : False,
     'emg_near'   : 9999.0,   # 전방 80° 최근접 거리
     'front_near' : 9999.0,   # 전방 35° 최근접 거리 (감속용)
-    'vfh_action' : 'FWD',    # 'FWD' | 'BACK'
+    'vfh_action' : 'FWD',
     'vfh_steer'  : 0.0,      # 정규화 조향값 (-1~1)
     'vfh_speed'  : 0.65,
     'rot_dir'    : 1.0,
@@ -151,10 +157,6 @@ def _compute_vfh(hist, has_pt):
     gaps = _find_gaps(hist, has_pt)
     best = _best_gap(gaps)
 
-    if emg <= EMERGENCY and (best is None or not best['passable']
-                              or abs(best['center']) > ROT_THRESH):
-        return 'BACK', 0.0, 0.80, 1.0, emg, front
-
     if best is not None and best['passable'] and abs(best['center']) <= ROT_THRESH:
         imb  = (best['d_R'] - best['d_L']) / (best['d_L'] + best['d_R'] + 1e-9)
         bias = imb * (best['delta_deg'] / 2.9)
@@ -235,10 +237,6 @@ def _vfh_drive(ser):
     if not ls['has_data']:
         ser.write(b"S\n")
         return "NO_LIDAR"
-    act = ls['vfh_action']
-    if act == 'BACK':
-        ser.write(b"B 0.80\n")
-        return f"VFH_BACK emg={ls['emg_near']:.0f}mm"
     ser.write(f"F {ls['vfh_steer']:.2f} {ls['vfh_speed']:.2f}\n".encode())
     return f"VFH_FWD steer={ls['vfh_steer']:+.2f} spd={ls['vfh_speed']:.2f}"
 
@@ -308,14 +306,18 @@ def solve_paper_pose(contour, cam_mat, dist_coeffs):
         return None
     quad_pts = _extract_quad(contour)
     try:
-        ok, _, tvec = cv2.solvePnP(_OBJ_PTS, quad_pts, cam_mat, dist_coeffs,
-                                    flags=cv2.SOLVEPNP_IPPE)
+        ok, rvec, tvec = cv2.solvePnP(_OBJ_PTS, quad_pts, cam_mat, dist_coeffs,
+                                       flags=cv2.SOLVEPNP_IPPE)
     except cv2.error:
         return None
     if not ok:
         return None
-    z_mm = float(tvec[2][0])
-    x_mm = float(tvec[0][0])
+    # 종이 무게중심 (150, 150, 0)을 카메라 좌표계로 변환
+    R, _ = cv2.Rodrigues(rvec)
+    center_obj = np.array([[PAPER_W_MM / 2], [PAPER_H_MM / 2], [0.0]], dtype=np.float64)
+    center_cam = R @ center_obj + tvec
+    z_mm = float(center_cam[2])
+    x_mm = float(center_cam[0])
     if not (np.isfinite(z_mm) and np.isfinite(x_mm) and z_mm > 0):
         return None
     angle = np.degrees(np.arctan2(x_mm, z_mm))
@@ -419,6 +421,7 @@ def main():
     last_seen      = time.time()
     last_steer     = 0.0
     smoothed_steer = 0.0
+    align_mode     = False
     area_peak_seen = False
     peak_area_r    = 0.0
 
@@ -439,17 +442,7 @@ def main():
             time.sleep(0.1)
             continue
 
-        # ── LiDAR 긴급 후진 (최우선 — SEEK 중에만 적용) ──────────
         ls = _lidar_read()
-        if state == 'SEEK' and ls['has_data'] and ls['emg_near'] <= EMERGENCY:
-            ser.write(b"B 0.80\n")
-            vis = raw.copy()
-            cv2.putText(vis, f"LIDAR EMERGENCY {ls['emg_near']:.0f}mm",
-                        (5, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
-            cv2.imshow('Robot View', vis)
-            cv2.waitKey(1)
-            print(f"  [EMG] 전방={ls['emg_near']:.0f}mm → 후진")
-            continue
 
         result = detector.detect(raw)
         color  = TARGETS[target_idx]
@@ -472,6 +465,7 @@ def main():
                     on_zone_count  = 0
                     area_peak_seen = False
                     peak_area_r    = 0.0
+                    align_mode     = False
                     last_seen      = time.time()
                     print(f"  ✅ {color.upper()} 완료 → {TARGETS[target_idx].upper()}")
                 else:
@@ -484,10 +478,11 @@ def main():
 
         # ① 강탐지 ─────────────────────────────────────────────────
         if det.get('found'):
-            last_seen = time.time()
-            cnt       = det['contour']
-            pose      = solve_paper_pose(cnt, pnp_mat, pnp_dist)
-            area_r    = det['area'] / (fw * fh)
+            last_seen     = time.time()
+            on_zone_count = 0          # 강탐지 중엔 "종이 위" 아님 → 카운트 초기화
+            cnt           = det['contour']
+            pose          = solve_paper_pose(cnt, pnp_mat, pnp_dist)
+            area_r        = det['area'] / (fw * fh)
 
             if area_r > AREA_PEAK_THRES:
                 area_peak_seen = True
@@ -495,7 +490,6 @@ def main():
 
             if pose is not None:
                 z_mm, x_mm, steer, quad_pts = pose
-                # LiDAR 전방 거리에 따른 속도 상한 제한
                 speed   = _speed_limit(SPEED_NEAR if z_mm < DIST_SLOW_MM else SPEED_FAR)
                 log_msg = f"PnP z={z_mm:.0f}mm x={x_mm:+.0f}mm area={area_r:.2f}"
 
@@ -505,11 +499,34 @@ def main():
                 cv2.polylines(vis, [quad_pts.astype(np.int32)], True, (0, 220, 255), 2)
                 ctr = quad_pts.mean(axis=0).astype(int)
                 _draw_center(vis, int(ctr[0]), int(ctr[1]), (0, 220, 255))
+
+                # ── 무게중심 도달 → 즉시 STOP ─────────────────────
+                if z_mm < ENTRY_STOP_MM:
+                    state = 'STOP'; stop_start = time.time()
+                    ser.write(b"S\n")
+                    print(f"  🎯 {color.upper()} 중심 도달! z={z_mm:.0f}mm")
+                    cv2.imshow('Robot View', vis); cv2.waitKey(1)
+                    continue
+
+                # ── 정렬 히스테리시스 ──────────────────────────────
+                if abs(steer) > ALIGN_STEER_ENTER and z_mm > ALIGN_MIN_DIST:
+                    align_mode = True # 정렬 모드 진입 
+                elif abs(steer) < ALIGN_STEER_EXIT:
+                    align_mode = False
+
+                if align_mode:
+                    rot_sign = 0.50 if steer > 0 else -0.50 # 제자리 회전 속도 (steer 방향 기반)
+                    ser.write(f"T {rot_sign:.2f}\n".encode()) # 제자리 회전 명령 (각도 : steer 방향, 속도: 고정)
+                    print(f"  [ALIGN] {color.upper()} rot={rot_sign:+.0f} steer={steer:+.2f} z={z_mm:.0f}mm")
+                    last_seen = time.time()
+                    continue  # HUD 스킵 후 다음 프레임
+
             else:
                 offset  = det['offset']
                 steer   = float(np.clip(offset * 0.80, -MAX_STEER, MAX_STEER))
                 speed   = _speed_limit(SPEED_NEAR if area_peak_seen else SPEED_FAR)
                 log_msg = f"fallback offset={offset:+.2f} area={area_r:.2f}"
+                align_mode = False   # PnP 없으면 정렬 모드 해제
                 cv2.putText(vis, f"A={area_r:.3f} pk={peak_area_r:.3f}",
                             (fw//2-80, 38), cv2.FONT_HERSHEY_SIMPLEX,
                             0.65, (200, 200, 200), 2)
@@ -523,7 +540,7 @@ def main():
             if speed > 0:
                 ser.write(f"F {steer:.2f} {speed:.2f}\n".encode())
             else:
-                ser.write(b"S\n")   # LiDAR 속도 제한으로 0이 된 경우
+                ser.write(b"S\n")
             print(f"  [SEEK] {color.upper()} {log_msg} steer={steer:+.2f} spd={speed:.2f}")
 
         # ② 피크 후 미탐지 (종이 위 진입 중) ───────────────────────
@@ -550,10 +567,14 @@ def main():
                 print(f"  [ENTER] {color.upper()} off={weak_offset:+.2f} steer={steer_cmd:+.2f}")
             else:
                 on_zone_count += 1
-                ser.write(b"S\n")
+                nudge_spd = _speed_limit(NUDGE_SPEED)
+                if nudge_spd > 0:
+                    ser.write(f"F 0.00 {nudge_spd:.2f}\n".encode())
+                else:
+                    ser.write(b"S\n")
                 cv2.putText(vis, f"ON PAPER  cnt:{on_zone_count}/{CONFIRM_FRAMES}",
                             (5, 58), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 255, 0), 2)
-                print(f"  [ON] {color.upper()} pk={peak_area_r:.2f} cnt={on_zone_count}")
+                print(f"  [ON] {color.upper()} pk={peak_area_r:.2f} cnt={on_zone_count} nudge={nudge_spd:.2f}")
                 if on_zone_count >= CONFIRM_FRAMES:
                     state = 'STOP'; stop_start = time.time()
                     ser.write(b"S\n")
@@ -589,7 +610,7 @@ def main():
                 elapsed = time.time() - last_seen
 
                 if elapsed < COLOR_MEMORY_TIME:
-                    # 색 소실 직후: 마지막 조향 방향 유지 → 좌우 우왕자왕 방지
+                    # 색 소실 직후: 마지막 조향 방향 유지 → 좌우 호회전 대신 부드러운 전진 유도
                     steer_cmd      = STEER_SMOOTH_ALPHA * last_steer + (1.0 - STEER_SMOOTH_ALPHA) * smoothed_steer
                     smoothed_steer = steer_cmd
                     mem_speed      = _speed_limit(SPEED_NEAR * 0.7)
