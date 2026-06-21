@@ -61,7 +61,7 @@ ROBOT_RADIUS  = 60.0
 
 OBS_DETECT_DIST  = DETECT        # 이 거리(mm) 이하면 장애물 감지 중으로 판단
 OBS_RETURN_TIME  = 8.0           # 장애물 통과 후 복귀 조향 유지 시간 (s)
-OBS_RETURN_GAIN  = 1.20          # 복귀 조향 계수 (회피 방향의 반대로 이 비율만큼)
+OBS_RETURN_GAIN  = 1.30          # 복귀 조향 계수 (회피 방향의 반대로 이 비율만큼)
 
 # LiDAR 상태 공유 변수 및 락
 _lidar_lock  = threading.Lock()
