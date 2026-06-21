@@ -9,8 +9,7 @@ import time
 import cv2
 import numpy as np
 
-from color_v2 import (ColorDetector, load_calibration,
-                        get_red_mask, get_yellow_mask, get_blue_mask)
+from color_v2 import ColorDetector, load_calibration
 
 # 시리얼 포트 설정 (환경에 맞게 조정)
 PORT_ARDU  = "/dev/ttyS0"
@@ -54,8 +53,8 @@ ALIGN_MIN_DIST    = 450.0  # 이 거리(mm) 이상에서만 정렬 (근거리는
 #  · VFH : 장애물을 피해 ~1m 전진 → 새로운 시야각 확보
 #  · 재스핀: 직전 스핀에서 가려졌던 영역 재탐지
 SEARCH_SPIN_SPEED = 0.30   # 제자리 회전 T 명령값 (align_mode와 동일 크기)
-SEARCH_SPIN_TIME  = 2.2    # 1회 360° 스핀 소요 시간(s) — 실측 후 조정
-SEARCH_VFH_TIME   = 3.5    # 스핀 사이 VFH 전진 시간(s, 약 1m 전진)
+SEARCH_SPIN_TIME  = 2.0    # 1회 360° 스핀 소요 시간(s) — 실측 후 조정
+SEARCH_VFH_TIME   = 4.5    # 스핀 사이 VFH 전진 시간(s, 약 1m 전진)
 
 TARGETS = ['red', 'yellow', 'blue']
 
@@ -79,10 +78,8 @@ _lidar_state = {
     'has_data'   : False,
     'emg_near'   : 9999.0,   # 전방 80° 최근접 거리
     'front_near' : 9999.0,   # 전방 35° 최근접 거리 (감속용)
-    'vfh_action' : 'FWD',
     'vfh_steer'  : 0.0,      # 정규화 조향값 (-1~1)
     'vfh_speed'  : 0.65,
-    'rot_dir'    : 1.0,
     'goal_bearing': None,    # 색상영역 방향(deg, +=우측, 0=전방). None=편향 없음
 }
 
@@ -170,7 +167,7 @@ def _best_gap(gaps, goal_bearing=None):
 
 # VFH 분석 → 주행 명령 (조향, 속도, 회전 여부) 계산
 def _compute_vfh(hist, has_pt, goal_bearing=None):
-    """VFH 분석 → (action, steer, speed, rot_dir, emg_near, front_near).
+    """VFH 분석 → (steer, speed, emg_near, front_near).
 
     goal_bearing(deg, +=우측) 가 주어지면 그 방향에 가까운 gap 을 우선 선택
     → 색상 추종 중에도 장애물을 '색 방향으로' 우회 (반발/교착 방지)."""
@@ -178,7 +175,7 @@ def _compute_vfh(hist, has_pt, goal_bearing=None):
     front = _nearest(hist, has_pt, 0.0, arc_half=40)
 
     if not any(has_pt):
-        return 'FWD', 0.0, 0.70, 1.0, emg, front
+        return 0.0, 0.70, emg, front
 
     gaps = _find_gaps(hist, has_pt)
     best = _best_gap(gaps, goal_bearing)
@@ -200,7 +197,7 @@ def _compute_vfh(hist, has_pt, goal_bearing=None):
         st   = max(-LID_MAX_STEER, min(LID_MAX_STEER,
                    tgt * (1.0+rt*0.5) / 90.0 * LID_MAX_STEER))
         spd  = 0.85 * (1.0 - rt * 0.55)
-        return 'FWD', float(st), float(spd), 1.0, emg, front
+        return float(st), float(spd), emg, front
 
     FARC = 60.0
     if gaps:
@@ -215,7 +212,7 @@ def _compute_vfh(hist, has_pt, goal_bearing=None):
     else:
         td = 0.0
     st = max(-LID_MAX_STEER, min(LID_MAX_STEER, td/90.0*LID_MAX_STEER*0.5))
-    return 'FWD', float(st), 0.40, 1.0, emg, front
+    return float(st), 0.40, emg, front
 
 
 # LiDAR 스캔 수집 및 VFH 분석 백그라운드 스레드
@@ -242,15 +239,13 @@ def _lidar_worker(ser_l):
                 hist, has_pt = _build_hist(scan_buf)
                 with _lidar_lock:
                     gb = _lidar_state['goal_bearing']
-                act, st, spd, rd, emg, front = _compute_vfh(hist, has_pt, gb)
+                st, spd, emg, front = _compute_vfh(hist, has_pt, gb)
                 with _lidar_lock:
                     _lidar_state['has_data']   = True
                     _lidar_state['emg_near']   = emg
                     _lidar_state['front_near'] = front
-                    _lidar_state['vfh_action'] = act
                     _lidar_state['vfh_steer']  = st
                     _lidar_state['vfh_speed']  = spd
-                    _lidar_state['rot_dir']    = rd
                 scan_buf = []
         except Exception as e:
             print(f"[LIDAR] {e}")
@@ -263,9 +258,8 @@ def _lidar_read():
         return dict(_lidar_state)
 
 
-def _vfh_drive(ser):
+def _vfh_drive(ser, ls):
     """VFH 계산 결과로 Arduino 주행 명령 전송 (미탐지 탐색용)."""
-    ls = _lidar_read()
     if not ls['has_data']:
         ser.write(b"S\n")
         return "NO_LIDAR"
@@ -273,7 +267,7 @@ def _vfh_drive(ser):
     return f"VFH_FWD steer={ls['vfh_steer']:+.2f} spd={ls['vfh_speed']:.2f}"
 
 
-def _search_step(ser, phase: str, phase_start: float, spin_dir: float):
+def _search_step(ser, ls, phase: str, phase_start: float, spin_dir: float):
     """탐색 상태머신: SPIN(제자리 360° 스캔) ↔ VFH(전진) 교대.
 
     반환 (phase, phase_start, log). 매 프레임 카메라 탐지가 우선하므로
@@ -287,13 +281,12 @@ def _search_step(ser, phase: str, phase_start: float, spin_dir: float):
     # VFH 전진 위상
     if now - phase_start >= SEARCH_VFH_TIME:
         return 'SPIN', now, "VFH->SPIN"
-    log = _vfh_drive(ser)
+    log = _vfh_drive(ser, ls)
     return 'VFH', phase_start, f"VFH {log}"
 
 
-def _speed_limit(cam_speed: float) -> float:
+def _speed_limit(cam_speed: float, ls: dict) -> float:
     """전방 장애물 거리에 따라 카메라 속도 상한 제한."""
-    ls = _lidar_read()
     if not ls['has_data']:
         return cam_speed
     front = ls['front_near']
@@ -381,14 +374,8 @@ def solve_paper_pose(contour, cam_mat, dist_coeffs):
 #  탐색 보조 함수 (color_Lidar_1.py 동일)
 # ═══════════════════════════════════════════════════════════════════
 
-def _get_mask(hsv, color: str):
-    if color == 'red':    return get_red_mask(hsv)
-    if color == 'yellow': return get_yellow_mask(hsv)
-    return get_blue_mask(hsv)
-
-# 색 영역에서 가장 큰 컨투어 반환 (면적 기준, WEAK_MIN_AREA 이상)
-def get_weak_contour(hsv, color: str):
-    mask = _get_mask(hsv, color)
+# 이미 만들어진 마스크에서 약탐지 컨투어 반환 (detect 의 마스크 재사용 → 재마스킹 제거)
+def _weak_from_mask(mask):
     cnts, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts = [c for c in cnts if cv2.contourArea(c) > WEAK_MIN_AREA]
     return max(cnts, key=cv2.contourArea) if cnts else None
@@ -405,6 +392,25 @@ def _draw_center(vis, cx: int, cy: int, color):
     cv2.circle(vis, (cx, cy), 6, color, -1)
     cv2.line(vis, (cx - 15, cy), (cx + 15, cy), color, 1)
     cv2.line(vis, (cx, cy - 15), (cx, cy + 15), color, 1)
+
+
+# 약탐지 공통 처리: 조향(EMA) + 주행명령 + HUD (분기 ②·③ 중복 제거)
+def _apply_weak(ser, vis, weak_cnt, fw, color, smoothed_steer,
+                hud_col, hud_label, log_label):
+    """반환 (last_steer, smoothed_steer)."""
+    offset = _contour_offset(weak_cnt, fw)
+    steer  = float(np.clip(offset * WEAK_STEER_GAIN, -MAX_STEER, MAX_STEER))
+    cmd    = STEER_SMOOTH_ALPHA * steer + (1.0 - STEER_SMOOTH_ALPHA) * smoothed_steer
+    ser.write(f"F {cmd:.2f} {WEAK_SPEED:.2f}\n".encode())
+    cv2.drawContours(vis, [weak_cnt], -1, (180, 180, 0), 1)
+    M = cv2.moments(weak_cnt)
+    if M['m00'] > 0:
+        _draw_center(vis, int(M['m10']/M['m00']), int(M['m01']/M['m00']), hud_col)
+    cv2.putText(vis, f"{hud_label} {color.upper()} off={offset:+.2f}",
+                (5, 58), cv2.FONT_HERSHEY_SIMPLEX, 0.55, hud_col, 2)
+    if DEBUG:
+        print(f"  [{log_label}] {color.upper()} off={offset:+.2f} steer={cmd:+.2f}")
+    return steer, cmd
 
 
 # [최적화 5] 디스플레이 전용 스레드: imshow/waitKey를 메인 루프 블로킹에서 분리
@@ -518,14 +524,12 @@ def main():
             time.sleep(0.1)
             continue
 
-        ls = _lidar_read()
-
-        result = detector.detect(raw)
+        ls     = _lidar_read()
         color  = TARGETS[target_idx]
-        vis    = detector.draw_debug(raw, result)
 
-        # [최적화 3] HSV 변환을 루프 상단에서 한 번만 수행 후 재사용
-        hsv_u  = cv2.cvtColor(result['undistorted'], cv2.COLOR_BGR2HSV)
+        # [최적화] 현재 표적 색만 계산 → 마스킹 비용 1/3 (3색→1색)
+        result = detector.detect(raw, only=color) 
+        vis    = detector.draw_debug(raw, result)
 
         # ── STOP (정지 대기) ───────────────────────────────────────
         if state == 'STOP':
@@ -574,7 +578,7 @@ def main():
 
             if pose is not None:
                 z_mm, x_mm, steer, quad_pts = pose
-                speed   = _speed_limit(SPEED_NEAR if z_mm < DIST_SLOW_MM else SPEED_FAR)
+                speed   = _speed_limit(SPEED_NEAR if z_mm < DIST_SLOW_MM else SPEED_FAR, ls)
                 cam_bearing = math.degrees(math.atan2(x_mm, z_mm))  # 색 방향(deg, +=우측)
                 log_msg = f"PnP z={z_mm:.0f}mm x={x_mm:+.0f}mm area={area_r:.2f}"
 
@@ -611,7 +615,7 @@ def main():
             else:
                 offset  = det['offset']
                 steer   = float(np.clip(offset * 0.80, -MAX_STEER, MAX_STEER))
-                speed   = _speed_limit(SPEED_NEAR if area_peak_seen else SPEED_FAR)
+                speed   = _speed_limit(SPEED_NEAR if area_peak_seen else SPEED_FAR, ls)
                 cam_bearing = offset * 30.0   # 픽셀 오프셋 → 근사 방향(반화각 30°)
                 log_msg = f"fallback offset={offset:+.2f} area={area_r:.2f}"
                 align_mode = False   # PnP 없으면 정렬 모드 해제
@@ -653,30 +657,17 @@ def main():
         # ② 피크 후 미탐지 (종이 위 진입 중) ───────────────────────
         elif area_peak_seen:
             searching = False          # 진입 중 → 탐색 종료
-            # [최적화 3] 미리 변환된 hsv_u 재사용 (이중 변환 제거)
-            weak_cnt = get_weak_contour(hsv_u, color)
+            # [최적화] detect 가 만든 현재 색 마스크 재사용 (재마스킹 제거)
+            weak_cnt = _weak_from_mask(result['masks'][color])
 
             if weak_cnt is not None:
-                weak_offset    = _contour_offset(weak_cnt, fw)
-                steer          = float(np.clip(weak_offset * WEAK_STEER_GAIN,
-                                               -MAX_STEER, MAX_STEER))
-                last_steer     = steer
-                last_seen      = time.time()
-                steer_cmd      = STEER_SMOOTH_ALPHA * steer + (1.0 - STEER_SMOOTH_ALPHA) * smoothed_steer
-                smoothed_steer = steer_cmd
-                ser.write(f"F {steer_cmd:.2f} {WEAK_SPEED:.2f}\n".encode())
-                cv2.drawContours(vis, [weak_cnt], -1, (180, 180, 0), 1)
-                M_w = cv2.moments(weak_cnt)
-                if M_w['m00'] > 0:
-                    _draw_center(vis, int(M_w['m10']/M_w['m00']),
-                                 int(M_w['m01']/M_w['m00']), (180, 255, 0))
-                cv2.putText(vis, f"ENTERING {color.upper()} off={weak_offset:+.2f}",
-                            (5, 58), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (180, 255, 0), 2)
-                if DEBUG:
-                    print(f"  [ENTER] {color.upper()} off={weak_offset:+.2f} steer={steer_cmd:+.2f}")
+                last_seen = time.time()
+                last_steer, smoothed_steer = _apply_weak(
+                    ser, vis, weak_cnt, fw, color, smoothed_steer,
+                    (180, 255, 0), "ENTERING", "ENTER")
             else:
                 on_zone_count += 1
-                nudge_spd = _speed_limit(NUDGE_SPEED)
+                nudge_spd = _speed_limit(NUDGE_SPEED, ls)
                 if nudge_spd > 0:
                     ser.write(f"F 0.00 {nudge_spd:.2f}\n".encode())
                 else:
@@ -696,29 +687,16 @@ def main():
         # ③ 미탐지 → VFH 탐색 (호회전 대체) ──────────────────────
         else:
             on_zone_count = max(0, on_zone_count - 1)
-            # [최적화 3] 미리 변환된 hsv_u 재사용 (이중 변환 제거)
-            weak_cnt = get_weak_contour(hsv_u, color)
+            # [최적화] detect 가 만든 현재 색 마스크 재사용 (재마스킹 제거)
+            weak_cnt = _weak_from_mask(result['masks'][color])
 
             if weak_cnt is not None:
                 # 약탐지: 해당 방향으로 저속 유도
-                searching      = False     # 색 흔적 포착 → 탐색 종료
-                weak_offset    = _contour_offset(weak_cnt, fw)
-                steer          = float(np.clip(weak_offset * WEAK_STEER_GAIN,
-                                               -MAX_STEER, MAX_STEER))
-                last_steer     = steer
-                last_seen      = time.time()
-                steer_cmd      = STEER_SMOOTH_ALPHA * steer + (1.0 - STEER_SMOOTH_ALPHA) * smoothed_steer
-                smoothed_steer = steer_cmd
-                ser.write(f"F {steer_cmd:.2f} {WEAK_SPEED:.2f}\n".encode())
-                cv2.drawContours(vis, [weak_cnt], -1, (180, 180, 0), 1)
-                M_w = cv2.moments(weak_cnt)
-                if M_w['m00'] > 0:
-                    _draw_center(vis, int(M_w['m10']/M_w['m00']),
-                                 int(M_w['m01']/M_w['m00']), (180, 180, 0))
-                cv2.putText(vis, f"WEAK {color.upper()} off={weak_offset:+.2f}",
-                            (5, 58), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (180, 180, 0), 2)
-                if DEBUG:
-                    print(f"  [WEAK] {color.upper()} off={weak_offset:+.2f} steer={steer_cmd:+.2f}")
+                searching = False          # 색 흔적 포착 → 탐색 종료
+                last_seen = time.time()
+                last_steer, smoothed_steer = _apply_weak(
+                    ser, vis, weak_cnt, fw, color, smoothed_steer,
+                    (180, 180, 0), "WEAK", "WEAK")
             else:
                 elapsed = time.time() - last_seen
 
@@ -727,7 +705,7 @@ def main():
                     searching      = False     # 아직 "방금 본" 상태 → 탐색 보류
                     steer_cmd      = STEER_SMOOTH_ALPHA * last_steer + (1.0 - STEER_SMOOTH_ALPHA) * smoothed_steer
                     smoothed_steer = steer_cmd
-                    mem_speed      = _speed_limit(SPEED_NEAR * 0.7)
+                    mem_speed      = _speed_limit(SPEED_NEAR * 0.7, ls)
                     if mem_speed > 0:
                         ser.write(f"F {steer_cmd:.2f} {mem_speed:.2f}\n".encode())
                     else:
@@ -747,7 +725,7 @@ def main():
                         search_phase = 'SPIN'
                         search_t0    = time.time()
                     search_phase, search_t0, slog = _search_step(
-                        ser, search_phase, search_t0, search_dir)
+                        ser, ls, search_phase, search_t0, search_dir)
                     smoothed_steer *= (1.0 - STEER_SMOOTH_ALPHA)
                     cv2.putText(vis, f"SEARCH {slog}",
                                 (5, 58), cv2.FONT_HERSHEY_SIMPLEX, 0.50, (100, 200, 255), 2)
