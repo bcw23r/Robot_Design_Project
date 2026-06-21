@@ -74,7 +74,8 @@ _lidar_state = {
 
 # LiDAR 스캔 → VFH 분석 → 주행 명령 변환 함수
 
-def _build_hist(scan_buf):
+# LiDAR 스캔 버퍼 → 히스토그램 구축 (각도 구간별 최소 거리)
+def _build_hist(scan_buf): 
     hist   = [9999.0] * N_BINS
     has_pt = [False]  * N_BINS
     for a, d in scan_buf:
@@ -84,8 +85,8 @@ def _build_hist(scan_buf):
             has_pt[idx] = True
     return hist, has_pt
 
-
-def _nearest(hist, has_pt, center_cw, arc_half=25):
+# 주어진 중심 각도 주변에서 가장 가까운 장애물 거리 반환 (탐색용)
+def _nearest(hist, has_pt, center_cw, arc_half=25): 
     cb = int(center_cw / BIN_DEG) % N_BINS
     nc = max(1, int(arc_half / BIN_DEG))
     md = 9999.0
@@ -95,7 +96,7 @@ def _nearest(hist, has_pt, center_cw, arc_half=25):
             md = hist[idx]
     return md
 
-
+# 히스토그램 분석 → 통과 가능한 간격(gap) 탐색 및 평가
 def _find_gaps(hist, has_pt):
     blocked = [has_pt[i] and hist[i] <= DETECT for i in range(N_BINS)]
     smoothed = blocked[:]
@@ -137,7 +138,7 @@ def _find_gaps(hist, has_pt):
             i += 1
     return gaps
 
-
+# 탐색된 간격 평가 → 최적 간격 선택 (통과 가능성, 중앙 위치, 깊이 등 고려)
 def _best_gap(gaps):
     if not gaps:
         return None
@@ -145,11 +146,11 @@ def _best_gap(gaps):
     return max(pool, key=lambda g: g['width']*0.3 - abs(g['center'])*1.6
                                     + min(g['depth'],DETECT)/DETECT*25.0)
 
-
+# VFH 분석 → 주행 명령 (조향, 속도, 회전 여부) 계산
 def _compute_vfh(hist, has_pt):
     """VFH 분석 → (action, steer, speed, rot_dir, emg_near, front_near)."""
     emg   = _nearest(hist, has_pt, 0.0, arc_half=80)
-    front = _nearest(hist, has_pt, 0.0, arc_half=35)
+    front = _nearest(hist, has_pt, 0.0, arc_half=55)
 
     if not any(has_pt):
         return 'FWD', 0.0, 0.70, 1.0, emg, front
@@ -188,7 +189,6 @@ def _compute_vfh(hist, has_pt):
 
 
 # LiDAR 스캔 수집 및 VFH 분석 백그라운드 스레드
-
 def _lidar_worker(ser_l):
     scan_buf = []
     while True:
@@ -265,13 +265,14 @@ _OBJ_PTS = np.array([
 ], dtype=np.float32)
 
 
+# 컨투어에서 사각형 추출 → 4개 꼭지점 반환 (반시계 방향, 좌상부터)
 def _order_points(pts: np.ndarray) -> np.ndarray:
     s    = pts.sum(axis=1)
     diff = np.diff(pts, axis=1).ravel()
     return np.array([pts[np.argmin(s)], pts[np.argmin(diff)],
                      pts[np.argmax(s)], pts[np.argmax(diff)]], dtype=np.float32)
 
-
+# 컨투어에서 사각형 추출 → 4개 꼭지점 반환 (반시계 방향, 좌상부터)
 def _extract_quad(contour: np.ndarray) -> np.ndarray:
     hull = cv2.convexHull(contour)
     peri = cv2.arcLength(hull, True)
@@ -300,7 +301,7 @@ def _extract_quad(contour: np.ndarray) -> np.ndarray:
 
     return _order_points(best)
 
-
+# 컨투어에서 사각형 추출 → solvePnP로 종이 위치 및 조향 계산 → (거리, 좌우 오프셋, 조향) 반환
 def solve_paper_pose(contour, cam_mat, dist_coeffs):
     if cam_mat is None:
         return None
@@ -312,6 +313,7 @@ def solve_paper_pose(contour, cam_mat, dist_coeffs):
         return None
     if not ok:
         return None
+    
     # 종이 무게중심 (150, 150, 0)을 카메라 좌표계로 변환
     R, _ = cv2.Rodrigues(rvec)
     center_obj = np.array([[PAPER_W_MM / 2], [PAPER_H_MM / 2], [0.0]], dtype=np.float64)
@@ -334,21 +336,21 @@ def _get_mask(hsv, color: str):
     if color == 'yellow': return get_yellow_mask(hsv)
     return get_blue_mask(hsv)
 
-
+# 색 영역에서 가장 큰 컨투어 반환 (면적 기준, WEAK_MIN_AREA 이상)
 def get_weak_contour(hsv, color: str):
     mask = _get_mask(hsv, color)
     cnts, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts = [c for c in cnts if cv2.contourArea(c) > WEAK_MIN_AREA]
     return max(cnts, key=cv2.contourArea) if cnts else None
 
-
+# 컨투어 무게중심의 좌우 오프셋 계산 (정규화된 -1~1 값, 음수=좌측, 양수=우측)
 def _contour_offset(cnt, frame_w: int) -> float:
     M = cv2.moments(cnt)
     if M['m00'] == 0:
         return 0.0
     return (M['m10'] / M['m00'] - frame_w / 2) / (frame_w / 2)
 
-
+# 디버그용: 이미지에 중심점과 십자선 그리기
 def _draw_center(vis, cx: int, cy: int, color):
     cv2.circle(vis, (cx, cy), 6, color, -1)
     cv2.line(vis, (cx - 15, cy), (cx + 15, cy), color, 1)
@@ -386,15 +388,18 @@ def main():
         print(f"[경고] 캘리브 해상도 불일치({calib_res} vs {fw}×{fh}) → PnP 비활성화")
         cam_mat = dist_coeffs = None
 
+    
     detector = ColorDetector(frame_w=fw, frame_h=fh,
                              camera_matrix=cam_mat, dist_coeffs=dist_coeffs)
-
+    
     if detector._map1 is not None:
         pnp_mat  = detector._new_mtx
         pnp_dist = np.zeros((4, 1), dtype=np.float64)
     else:
         pnp_mat  = cam_mat
         pnp_dist = dist_coeffs if dist_coeffs is not None else np.zeros((4, 1))
+
+
 
     # ── 종료 핸들러 ───────────────────────────────────────────────
     def _cleanup():
@@ -472,6 +477,8 @@ def main():
                     state = 'DONE'
                     print("  ✅ 전체 미션 완료!")
             continue
+
+
 
         # ── SEEK ──────────────────────────────────────────────────
         det = result.get(color, {})
