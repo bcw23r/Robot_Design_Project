@@ -47,8 +47,8 @@ ALIGN_STEER_EXIT  = 0.05   # 정렬 완료 임계값 (|steer| 이하)
 ALIGN_MIN_DIST    = 450.0  # 이 거리(mm) 이상에서만 정렬 (근거리는 바로 전진)
 
 SEARCH_SPIN_SPEED = 0.40   # 제자리 회전 T 명령값 (align_mode와 동일 크기)
-SEARCH_SPIN_TIME  = 3.55   # 1회 360° 스핀 소요 시간(s) — 실측 후 조정
-SEARCH_VFH_TIME   = 5.0    # 스핀 사이 VFH 전진 시간(s, 약 1m 전진)
+SEARCH_SPIN_TIME  = 3.6    # 1회 360° 스핀 소요 시간(s) — 실측 후 조정
+SEARCH_VFH_TIME   = 4.2    # 스핀 사이 VFH 전진 시간(s, 약 1m 전진)
 
 TARGETS = ['red', 'yellow', 'blue']
 
