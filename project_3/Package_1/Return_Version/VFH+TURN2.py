@@ -570,7 +570,7 @@ def main():
         ls     = _lidar_read()
         result = detector.detect(raw)
         vis    = detector.draw_debug(raw, result)
-        hsv_u  = result['hsv']                      # detect() 내부에서 이미 변환된 HSV 재사용
+        hsv_u  = cv2.cvtColor(result['undistorted'], cv2.COLOR_BGR2HSV)
 
         # ── SEEK ──────────────────────────────────────────────────
         det = result.get(color, {})
@@ -678,7 +678,7 @@ def main():
         elif area_peak_seen:
             searching = False          # 진입 중 → 탐색 종료
             # [최적화 3] 미리 변환된 hsv_u 재사용 (이중 변환 제거)
-            weak_cnt = get_weak_contour(hsv_u, color, mask=result['masks'].get(color))
+            weak_cnt = get_weak_contour(hsv_u, color, mask=(result.get('masks') or {}).get(color))
 
             if weak_cnt is not None:
                 weak_offset    = _contour_offset(weak_cnt, fw)
@@ -721,7 +721,7 @@ def main():
         else:
             on_zone_count = max(0, on_zone_count - 1)
             # [최적화 3] 미리 변환된 hsv_u 재사용 (이중 변환 제거)
-            weak_cnt = get_weak_contour(hsv_u, color, mask=result['masks'].get(color))
+            weak_cnt = get_weak_contour(hsv_u, color, mask=(result.get('masks') or {}).get(color))
 
             if weak_cnt is not None:
                 # 약탐지: 해당 방향으로 저속 유도
