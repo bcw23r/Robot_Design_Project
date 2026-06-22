@@ -26,8 +26,8 @@ PAPER_H_MM = 300.0
 
 # 주행 파라미터
 MAX_STEER       = 1.0
-SPEED_FAR       = 0.70
-SPEED_NEAR      = 0.57
+SPEED_FAR       = 0.72
+SPEED_NEAR      = 0.60
 DIST_SLOW_MM    = 150.0
 AREA_PEAK_THRES = 0.08
 STEER_GAIN      = 0.015
@@ -36,7 +36,7 @@ STOP_DURATION   = 1.0
 ENTRY_STOP_MM   = 200.0  # 카메라→앞바퀴 거리 (실측 후 조정, 종이 중심 도달 시 정지)
 
 WEAK_MIN_AREA      = 200
-WEAK_SPEED         = 0.57
+WEAK_SPEED         = 0.60
 WEAK_STEER_GAIN    = 0.60
 NUDGE_SPEED        = 0.20   # 피크 후 미탐지 시 앞으로 밀어 넣는 속도 (느리게 → 오버슈트 감소)
 COLOR_MEMORY_TIME  = 0.30   # 색 소실 후 마지막 조향 유지 시간 (s)
