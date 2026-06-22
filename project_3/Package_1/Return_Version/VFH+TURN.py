@@ -65,10 +65,10 @@ DEBUG = True
 # LiDAR VFH 파라미터
 BIN_DEG       = 4.0
 N_BINS        = int(360 / BIN_DEG)
-GAP_MIN_PASS  = 80.0
+GAP_MIN_PASS  = 120.0
 DETECT        = 700.0
 VELO_DOWN     = 400.0
-EMERGENCY     = 210.0
+EMERGENCY     = 300.0
 LID_MAX_STEER = 1.2
 ROT_THRESH    = 100.0
 ROBOT_RADIUS  = 90.0
@@ -106,7 +106,7 @@ def _build_hist(scan_buf):
     return hist, has_pt
 
 # 주어진 중심 각도 주변에서 가장 가까운 장애물 거리 반환 (탐색용)
-def _nearest(hist, has_pt, center_cw, arc_half=55):
+def _nearest(hist, has_pt, center_cw, arc_half=40):
     cb = int(center_cw / BIN_DEG) % N_BINS
     nc = max(1, int(arc_half / BIN_DEG))
     md = 9999.0
@@ -165,8 +165,8 @@ def _best_gap(gaps, goal_bearing=None):
     pool = [g for g in gaps if g['passable']] or gaps
     # goal_bearing 이 있으면 정면(0°) 대신 색 방향에 가까운 gap 을 선호
     ref = 0.0 if goal_bearing is None else goal_bearing
-    return max(pool, key=lambda g: g['width']*0.3 - abs(g['center']-ref)*1.6
-                                    + min(g['depth'],DETECT)/DETECT*25.0)
+    return max(pool, key=lambda g: g['width']*0.5 - abs(g['center']-ref)*1.2
+                                    + min(g['depth'],DETECT)/DETECT*20.0)
 
 # VFH 분석 → 주행 명령 (조향, 속도, 회전 여부) 계산
 def _compute_vfh(hist, has_pt, goal_bearing=None):
@@ -199,7 +199,7 @@ def _compute_vfh(hist, has_pt, goal_bearing=None):
         rt   = min(max((VELO_DOWN-nd)/(VELO_DOWN-EMERGENCY), 0.0), 1.0)
         st   = max(-LID_MAX_STEER, min(LID_MAX_STEER,
                    tgt * (1.0+rt*0.5) / 90.0 * LID_MAX_STEER))
-        spd  = 0.85 * (1.0 - rt * 0.55)
+        spd  = 0.80 * (1.0 - rt * 0.55)
         return 'FWD', float(st), float(spd), 1.0, emg, front
 
     FARC = 60.0
