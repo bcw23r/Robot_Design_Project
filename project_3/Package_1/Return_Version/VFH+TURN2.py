@@ -47,7 +47,7 @@ ALIGN_STEER_EXIT  = 0.05   # 정렬 완료 임계값 (|steer| 이하)
 ALIGN_MIN_DIST    = 450.0  # 이 거리(mm) 이상에서만 정렬 (근거리는 바로 전진)
 
 SEARCH_SPIN_SPEED = 0.40   # 제자리 회전 T 명령값 (align_mode와 동일 크기)
-SEARCH_SPIN_TIME  = 4.0    # 1회 360° 스핀 소요 시간(s) — 실측 후 조정
+SEARCH_SPIN_TIME  = 3.8    # 1회 360° 스핀 소요 시간(s) — 실측 후 조정
 SEARCH_VFH_TIME   = 4.5    # 스핀 사이 VFH 전진 시간(s, 약 1m 전진)
 
 TARGETS = ['red', 'yellow', 'blue']
@@ -58,12 +58,12 @@ DEBUG = True
 # LiDAR VFH 파라미터
 BIN_DEG       = 4.0
 N_BINS        = int(360 / BIN_DEG)
-GAP_MIN_PASS  = 120.0
-DETECT        = 700.0
+GAP_MIN_PASS  = 80.0
+DETECT        = 680.0
 VELO_DOWN     = 400.0   # 속도 감소 시작 거리 (mm) — _speed_limit 전용
-AVOID_ENTER   = 600.0   # SEEK AVOID 모드 진입 거리 (mm) — VELO_DOWN보다 크게 설정
-AVOID_EXIT    = 720.0   # SEEK AVOID 모드 해제 거리 (mm)
-EMERGENCY     = 300.0
+AVOID_ENTER   = 500.0   # SEEK AVOID 모드 진입 거리 (mm) — VELO_DOWN보다 크게 설정
+AVOID_EXIT    = 620.0   # SEEK AVOID 모드 해제 거리 (mm)
+EMERGENCY     = 180.0
 LID_MAX_STEER = 1.2
 ROT_THRESH    = 100.0
 ROBOT_RADIUS  = 90.0
@@ -517,7 +517,8 @@ def main():
     search_phase   = 'SPIN'    # 'SPIN' | 'VFH'
     search_t0      = 0.0       # 현재 위상 시작 시각
     search_dir     = 1.0       # 스핀 회전 방향 (+1 = 한 방향 고정)
-    avoiding       = False     # 색 추종 중 장애물 우회 모드 (히스테리시스)
+    avoiding        = False    # 색 추종 중 장애물 우회 모드 (히스테리시스)
+    avoid_steer_ema = 0.0     # AVOID 조향 EMA (좌우 진동 억제)
 
     while True:
         ret, raw = cap.read()
@@ -661,9 +662,12 @@ def main():
                 avoiding = False
 
             if avoiding:
-                steer   = float(np.clip(ls['vfh_steer'], -MAX_STEER, MAX_STEER))
-                speed   = _speed_limit(ls['vfh_speed'])   # 긴급정지 보장 (_speed_limit 우회 제거)
+                avoid_steer_ema = 0.5 * avoid_steer_ema + 0.5 * ls['vfh_steer']  # EMA로 좌우 진동 억제
+                steer   = float(np.clip(avoid_steer_ema, -MAX_STEER, MAX_STEER))
+                speed   = _speed_limit(ls['vfh_speed'])
                 log_msg = f"AVOID(vfh) bearing={cam_bearing:+.0f} front={ls['front_near']:.0f} emg={ls['emg_near']:.0f}"
+            else:
+                avoid_steer_ema = 0.0  # AVOID 해제 시 EMA 리셋
 
             last_steer     = steer
             smoothed_steer = steer  # 강탐지 시 평활화 값 즉시 동기화
