@@ -43,8 +43,8 @@ COLOR_MEMORY_TIME  = 0.40   # 색 소실 후 마지막 조향 유지 시간 (s)
 STEER_SMOOTH_ALPHA = 0.40   # 조향 EMA 평활화 계수 (낮을수록 부드러움)
 
 ALIGN_STEER_ENTER = 0.30   # 제자리 정렬 회전 시작 임계값 (|steer| 이상)
-ALIGN_STEER_EXIT  = 0.10   # 정렬 완료 임계값 (|steer| 이하)
-ALIGN_MIN_DIST    = 400.0  # 이 거리(mm) 이상에서만 정렬 (근거리는 바로 전진)
+ALIGN_STEER_EXIT  = 0.05   # 정렬 완료 임계값 (|steer| 이하)
+ALIGN_MIN_DIST    = 450.0  # 이 거리(mm) 이상에서만 정렬 (근거리는 바로 전진)
 
 # ── 탐색(SEARCH) 파라미터 ─────────────────────────────────────────
 # 색상영역 미발견 시: 즉시 360° 제자리 스핀(넓게 스캔) → VFH 전진 →
@@ -199,7 +199,7 @@ def _compute_vfh(hist, has_pt, goal_bearing=None):
         rt   = min(max((VELO_DOWN-nd)/(VELO_DOWN-EMERGENCY), 0.0), 1.0)
         st   = max(-LID_MAX_STEER, min(LID_MAX_STEER,
                    tgt * (1.0+rt*0.5) / 90.0 * LID_MAX_STEER))
-        spd  = 0.80 * (1.0 - rt * 0.55)
+        spd  = 0.8 * (1.0 - rt * 0.55)
         return 'FWD', float(st), float(spd), 1.0, emg, front
 
     FARC = 60.0
@@ -447,6 +447,20 @@ def main():
     fw = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     fh = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+    # ── 카메라 워밍업: 초기 쓰레기 프레임 폐기 ──────────────────
+    # USB 카메라는 초기 수 프레임이 백색 노이즈로 출력됨.
+    # 프레임 표준편차가 안정될 때까지 최대 60프레임 대기.
+    print("[CAM] 워밍업 중...", end=" ", flush=True)
+    for _ in range(60):
+        _ok, _f = cap.read()
+        if _ok and _f is not None:
+            _std = float(cv2.cvtColor(_f, cv2.COLOR_BGR2GRAY).std())
+            if _std < 80.0:          # 노이즈 프레임: std 높음, 정상 프레임: 낮음
+                break
+        time.sleep(0.033)
+    time.sleep(0.2)                  # 노출·AWB 추가 안정화
+    print("완료")
+
     cam_mat, dist_coeffs, calib_res = load_calibration(CALIB_FILE)
     if calib_res and calib_res != (fw, fh):
         print(f"[경고] 캘리브 해상도 불일치({calib_res} vs {fw}×{fh}) → PnP 비활성화")
@@ -568,7 +582,9 @@ def main():
             pose          = solve_paper_pose(cnt, pnp_mat, pnp_dist)
             area_r        = det['area'] / (fw * fh)
 
-            if area_r > AREA_PEAK_THRES:
+            # PnP 거리 기준: 충분히 가까워졌을 때만 피크 플래그 설정
+            # (멀리서 색상이 크게 보이더라도 아직 종이 위가 아님)
+            if area_r > AREA_PEAK_THRES and (pose is None or pose[0] < ENTRY_STOP_MM * 3):
                 area_peak_seen = True
                 peak_area_r    = max(peak_area_r, area_r)
 
@@ -601,6 +617,7 @@ def main():
                     align_mode = False
 
                 if align_mode:
+                    on_zone_count = 0   # 정렬 회전 중엔 종이 위 판정 금지
                     rot_sign = 0.30 if steer > 0 else -0.30
                     ser.write(f"T {rot_sign:.2f}\n".encode())
                     if DEBUG:
@@ -627,19 +644,19 @@ def main():
             with _lidar_lock:
                 _lidar_state['goal_bearing'] = cam_bearing
 
-            # ── 장애물 근접 시 목표지향 VFH로 조향 이양 (반발/교착 방지) ──
-            #   히스테리시스: emg<DETECT 진입, emg>DETECT*1.2 해제 → 모드 깜빡임 방지
+            # ── 장애물 근접 시 목표지향 VFH로 조향 이양 ──
+            # front_near(전방 40°) 기준: 측면 물체로 인한 오발동 방지
+            # 히스테리시스: front<VELO_DOWN 진입, front>VELO_DOWN*1.2 해제
             if ls['has_data']:
-                if   ls['emg_near'] < DETECT:        avoiding = True
-                elif ls['emg_near'] > DETECT * 1.2:  avoiding = False
+                if   ls['front_near'] < VELO_DOWN:        avoiding = True
+                elif ls['front_near'] > VELO_DOWN * 1.2:  avoiding = False
             else:
                 avoiding = False
 
             if avoiding:
-                # 색 방향으로 편향된 gap 을 따라 장애물 우회 (단일 결정자)
-                steer   = float(np.clip(ls['vfh_steer'], -MAX_STEER, MAX_STEER)) # VFH 조향 그대로 사용
-                speed   = ls['vfh_speed'] # VFH 속도 그대로 사용
-                log_msg = f"AVOID(vfh) bearing={cam_bearing:+.0f} emg={ls['emg_near']:.0f}" # 디버그용
+                steer   = float(np.clip(ls['vfh_steer'], -MAX_STEER, MAX_STEER))
+                speed   = _speed_limit(ls['vfh_speed'])   # 긴급정지 보장 (_speed_limit 우회 제거)
+                log_msg = f"AVOID(vfh) bearing={cam_bearing:+.0f} front={ls['front_near']:.0f} emg={ls['emg_near']:.0f}"
 
             last_steer     = steer
             smoothed_steer = steer  # 강탐지 시 평활화 값 즉시 동기화
