@@ -47,8 +47,8 @@ ALIGN_STEER_EXIT  = 0.05   # 정렬 완료 임계값 (|steer| 이하)
 ALIGN_MIN_DIST    = 450.0  # 이 거리(mm) 이상에서만 정렬 (근거리는 바로 전진)
 
 SEARCH_SPIN_SPEED = 0.40   # 제자리 회전 T 명령값 (align_mode와 동일 크기)
-SEARCH_SPIN_TIME  = 5.0    # 1회 360° 스핀 소요 시간(s) — 실측 후 조정
-SEARCH_VFH_TIME   = 5.5    # 스핀 사이 VFH 전진 시간(s, 약 1m 전진)
+SEARCH_SPIN_TIME  = 4.0    # 1회 360° 스핀 소요 시간(s) — 실측 후 조정
+SEARCH_VFH_TIME   = 4.5    # 스핀 사이 VFH 전진 시간(s, 약 1m 전진)
 
 TARGETS = ['red', 'yellow', 'blue']
 
@@ -667,12 +667,20 @@ def main():
 
             last_steer     = steer
             smoothed_steer = steer  # 강탐지 시 평활화 값 즉시 동기화
-            if speed > 0:
+            if avoiding and speed == 0:
+                # 긴급정지 + AVOID: 제자리 회전으로 탈출 (S\n을 보내면 조향 불가)
+                rot = 0.28 if steer > 0 else -0.28
+                ser.write(f"T {rot:.2f}\n".encode())
+                if DEBUG:
+                    print(f"  [SEEK] {color.upper()} {log_msg} ESCAPE_ROT={rot:+.2f}")
+            elif speed > 0:
                 ser.write(f"F {steer:.2f} {speed:.2f}\n".encode())
+                if DEBUG:
+                    print(f"  [SEEK] {color.upper()} {log_msg} steer={steer:+.2f} spd={speed:.2f}")
             else:
                 ser.write(b"S\n")
-            if DEBUG:
-                print(f"  [SEEK] {color.upper()} {log_msg} steer={steer:+.2f} spd={speed:.2f}")
+                if DEBUG:
+                    print(f"  [SEEK] {color.upper()} {log_msg} steer={steer:+.2f} spd={speed:.2f}")
 
         # ② 피크 후 미탐지 (종이 위 진입 중) ───────────────────────
         elif area_peak_seen:
