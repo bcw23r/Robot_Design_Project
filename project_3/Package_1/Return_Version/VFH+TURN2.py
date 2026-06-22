@@ -26,7 +26,7 @@ PAPER_H_MM = 300.0
 
 # 주행 파라미터
 MAX_STEER       = 1.0
-SPEED_FAR       = 0.72
+SPEED_FAR       = 0.70
 SPEED_NEAR      = 0.60
 DIST_SLOW_MM    = 150.0
 AREA_PEAK_THRES = 0.08
@@ -516,7 +516,7 @@ def main():
     searching      = False     # 탐색 상태머신 진입 여부
     search_phase   = 'SPIN'    # 'SPIN' | 'VFH'
     search_t0      = 0.0       # 현재 위상 시작 시각
-    search_dir     = 1.0       # 스핀 회전 방향 (+1 = 한 방향 고정)
+    search_dir     = 1.0       # 스핀 회전 방향 (+1 = 한 방향 고정) # 왼쪽 회전: +1, 오른쪽 회전: -1
     avoiding        = False    # 색 추종 중 장애물 우회 모드 (히스테리시스)
     avoid_steer_ema = 0.0     # AVOID 조향 EMA (좌우 진동 억제)
 
@@ -782,8 +782,11 @@ def main():
                         searching    = True
                         search_phase = 'SPIN'
                         search_t0    = time.time()
+                    _prev_phase  = search_phase
                     search_phase, search_t0, slog = _search_step(
                         ser, search_phase, search_t0, search_dir)
+                    if _prev_phase == 'SPIN' and search_phase == 'VFH':
+                        search_dir *= -1  # SPIN 완료마다 회전 방향 반전
                     smoothed_steer *= (1.0 - STEER_SMOOTH_ALPHA)
                     cv2.putText(vis, f"SEARCH {slog}",
                                 (5, 58), cv2.FONT_HERSHEY_SIMPLEX, 0.50, (100, 200, 255), 2)
