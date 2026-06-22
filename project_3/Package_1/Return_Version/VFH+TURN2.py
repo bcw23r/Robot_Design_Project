@@ -26,8 +26,8 @@ PAPER_H_MM = 300.0
 
 # 주행 파라미터
 MAX_STEER       = 1.0
-SPEED_FAR       = 0.65
-SPEED_NEAR      = 0.40
+SPEED_FAR       = 0.70
+SPEED_NEAR      = 0.57
 DIST_SLOW_MM    = 150.0
 AREA_PEAK_THRES = 0.08
 STEER_GAIN      = 0.015
@@ -36,7 +36,7 @@ STOP_DURATION   = 1.0
 ENTRY_STOP_MM   = 200.0  # 카메라→앞바퀴 거리 (실측 후 조정, 종이 중심 도달 시 정지)
 
 WEAK_MIN_AREA      = 200
-WEAK_SPEED         = 0.50
+WEAK_SPEED         = 0.57
 WEAK_STEER_GAIN    = 0.60
 NUDGE_SPEED        = 0.20   # 피크 후 미탐지 시 앞으로 밀어 넣는 속도 (느리게 → 오버슈트 감소)
 COLOR_MEMORY_TIME  = 0.30   # 색 소실 후 마지막 조향 유지 시간 (s)
@@ -47,8 +47,8 @@ ALIGN_STEER_EXIT  = 0.05   # 정렬 완료 임계값 (|steer| 이하)
 ALIGN_MIN_DIST    = 450.0  # 이 거리(mm) 이상에서만 정렬 (근거리는 바로 전진)
 
 SEARCH_SPIN_SPEED = 0.40   # 제자리 회전 T 명령값 (align_mode와 동일 크기)
-SEARCH_SPIN_TIME  = 3.8    # 1회 360° 스핀 소요 시간(s) — 실측 후 조정
-SEARCH_VFH_TIME   = 4.5    # 스핀 사이 VFH 전진 시간(s, 약 1m 전진)
+SEARCH_SPIN_TIME  = 3.7    # 1회 360° 스핀 소요 시간(s) — 실측 후 조정
+SEARCH_VFH_TIME   = 5.0    # 스핀 사이 VFH 전진 시간(s, 약 1m 전진)
 
 TARGETS = ['red', 'yellow', 'blue']
 
@@ -58,11 +58,11 @@ DEBUG = True
 # LiDAR VFH 파라미터
 BIN_DEG       = 4.0
 N_BINS        = int(360 / BIN_DEG)
-GAP_MIN_PASS  = 80.0
+GAP_MIN_PASS  = 75.0
 DETECT        = 680.0
-VELO_DOWN     = 400.0   # 속도 감소 시작 거리 (mm) — _speed_limit 전용
-AVOID_ENTER   = 500.0   # SEEK AVOID 모드 진입 거리 (mm) — VELO_DOWN보다 크게 설정
-AVOID_EXIT    = 620.0   # SEEK AVOID 모드 해제 거리 (mm)
+VELO_DOWN     = 550.0   # 속도 감소 시작 거리 (mm) — _speed_limit 전용
+AVOID_ENTER   = 580.0   # SEEK AVOID 모드 진입 거리 (mm) — VELO_DOWN보다 크게 설정
+AVOID_EXIT    = 630.0   # SEEK AVOID 모드 해제 거리 (mm)
 EMERGENCY     = 180.0
 LID_MAX_STEER = 1.2
 ROT_THRESH    = 100.0
